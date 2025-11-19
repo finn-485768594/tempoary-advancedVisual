@@ -2,10 +2,18 @@
 import cv2
 from pathlib import Path
 
-data_dir = Path("data_provided_for_task/IconDataset/png")
-for p in data_dir.rglob("*.png"):
+iconsarray=[]
+iconsLocation = Path("data_provided_for_task/IconDataset/png")
+for p in iconsLocation.rglob("*.png"):
     img = cv2.imread(str(p), cv2.IMREAD_UNCHANGED)  # BGRA if has alpha
+    iconsarray.append(img)
     # process as numpy array
-    print(f"Image {p} has shape {img.shape}")
-    print(img)
-    break  # just to test one image
+print(f"icons array has {len(iconsarray)} images of size {iconsarray[0].shape}")
+
+testImagesarray=[]
+testImagesLocation = Path("data_provided_for_task/images")
+for p in testImagesLocation.rglob("*.png"):
+    img = cv2.imread(str(p), cv2.IMREAD_UNCHANGED)  # BGRA if has alpha
+    testImagesarray.append(img)
+    # process as numpy array
+print(f"test images array has {len(testImagesarray)} images of size {testImagesarray[0].shape}") 
