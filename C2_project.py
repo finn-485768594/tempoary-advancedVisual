@@ -6,3 +6,6 @@ data_dir = Path("data_provided_for_task/IconDataset/png")
 for p in data_dir.rglob("*.png"):
     img = cv2.imread(str(p), cv2.IMREAD_UNCHANGED)  # BGRA if has alpha
     # process as numpy array
+    print(f"Image {p} has shape {img.shape}")
+    print(img)
+    break  # just to test one image
