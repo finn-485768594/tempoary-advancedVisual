@@ -26,10 +26,12 @@ class libarygaussianPyramid:
     def __init__(self, image, levels=5,octaves=3):
         self.levels = levels
         self.octaves = octaves
-        self.sigmaScale=1
+        self.sigmaScale=0.5
         self.pyramid = [[image]] #as i prefer appending my pyramid is going to be upside down if it gets printed but it works the exact same
-        self.build_pyramid()
         self.kernal_size = (9, 9)
+        
+        self.build_pyramid()
+        
         #self.get_pyramid()
 
     def build_pyramid(self):
@@ -37,9 +39,8 @@ class libarygaussianPyramid:
         image=self.pyramid[0][0]
         this_level = [image]
         for j in range(1, (self.octaves)): 
-            sigma_value=(2**(j))*self.sigmaScale# i was told this was a sesible way to increase the sigma value            #print(j)
-            kernal_size=self.kernal_size
-            this_level.append(cv2.GaussianBlur(image, kernal_size, sigmaX=sigma_value, sigmaY=sigma_value))
+            sigma_value=(j)*self.sigmaScale# i was told this was a sesible way to increase the sigma value            #print(j)
+            this_level.append(cv2.GaussianBlur(image, self.kernal_size, sigmaX=sigma_value, sigmaY=sigma_value))
         #print(f"Level 0 has {len(this_level)} images of size {this_level[0].shape}")
         self.pyramid = []  # Reset pyramid to empty list
         self.pyramid.append(this_level)
@@ -54,7 +55,7 @@ class libarygaussianPyramid:
             #print("test level")
             for j in range(1, (self.octaves)): 
                 #print(j)
-                sigma_value=2**(1/(j+0.00001))*self.sigmaScale
+                sigma_value=j*self.sigmaScale
                 this_level.append(cv2.GaussianBlur(image, self.kernal_size,  sigmaX=sigma_value, sigmaY=sigma_value))
             #print(f"Level {i} has {len(this_level)} images of size {this_level[0].shape}")
             self.pyramid.append(this_level)
