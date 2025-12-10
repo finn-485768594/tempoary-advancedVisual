@@ -11,7 +11,7 @@ for p in iconsLocation.rglob("*.png"):
     img = cv2.imread(str(p), cv2.IMREAD_UNCHANGED)  # BGRA if has alpha
     iconsarray.append(img)
 
-print(f"icons array has {len(iconsarray)} images of size {iconsarray[0].shape}")
+#print(f"icons array has {len(iconsarray)} images of size {iconsarray[0].shape}")
 
 testImagesarray=[]
 testImagesLocation = Path("data_provided_for_task/images")
@@ -19,26 +19,32 @@ for p in testImagesLocation.rglob("*.png"):
     img = cv2.imread(str(p), cv2.IMREAD_UNCHANGED)  # BGRA if has alpha
     testImagesarray.append(img)
 
-print(f"test images array has {len(testImagesarray)} images of size {testImagesarray[0].shape}") 
+#print(f"test images array has {len(testImagesarray)} images of size {testImagesarray[0].shape}") 
 
 #now the data is loaded, build gaussian pyramids for the icons
 class libarygaussianPyramid:
     def __init__(self, image, levels=5,octaves=3):
         self.levels = levels
         self.octaves = octaves
+        self.sigmaScale=0.5
         self.pyramid = [[image]] #as i prefer appending my pyramid is going to be upside down if it gets printed but it works the exact same
+        self.kernal_size = (9, 9)
+        
         self.build_pyramid()
+        
+        #self.get_pyramid()
 
     def build_pyramid(self):
+        
         image=self.pyramid[0][0]
         this_level = [image]
-        for j in range(1, (self.octaves+1)): 
-            #print(j)
-            this_level.append(cv2.GaussianBlur(image, (5, 5), sigmaX=j*1.5, sigmaY=j*1.5))
-        print(f"Level 0 has {len(this_level)} images of size {this_level[0].shape}")
+        for j in range(1, (self.octaves)): 
+            sigma_value=(j)*self.sigmaScale# i was told this was a sesible way to increase the sigma value            #print(j)
+            this_level.append(cv2.GaussianBlur(image, self.kernal_size, sigmaX=sigma_value, sigmaY=sigma_value))
+        #print(f"Level 0 has {len(this_level)} images of size {this_level[0].shape}")
         self.pyramid = []  # Reset pyramid to empty list
         self.pyramid.append(this_level)
-        print(f"Pyramid now has {len(self.pyramid)} levels")
+        #print(f"Pyramid now has {len(self.pyramid)} levels")
         
         for i in range(1, self.levels):
             image = cv2.pyrDown(self.pyramid[i - 1][0])
@@ -47,15 +53,14 @@ class libarygaussianPyramid:
             #Downsamples it by a factor of 2 in width and height
             this_level = [image]
             #print("test level")
-            for j in range(1, (self.octaves+1)): 
+            for j in range(1, (self.octaves)): 
                 #print(j)
-                this_level.append(cv2.GaussianBlur(image, (5, 5), sigmaX=j*1.5, sigmaY=j*1.5))
-            print(f"Level {i} has {len(this_level)} images of size {this_level[0].shape}")
+                sigma_value=j*self.sigmaScale
+                this_level.append(cv2.GaussianBlur(image, self.kernal_size,  sigmaX=sigma_value, sigmaY=sigma_value))
+            #print(f"Level {i} has {len(this_level)} images of size {this_level[0].shape}")
             self.pyramid.append(this_level)
-            print(f"Pyramid now has {len(self.pyramid)} levels")
-        
-
-    
+            #print(f"Pyramid now has {len(self.pyramid)} levels")
+          
     def redefine_pyramid(self, image):
         self.pyramid = [[image]]
         self.build_pyramid()
@@ -69,43 +74,6 @@ class libarygaussianPyramid:
     def get_pyramid(self):
         return self.pyramid
 
-    '''
-    def show_pyramid_test(self):
-        print(len(self.pyramid))
-        print(len(self.pyramid[0]))
-        #this function was made using github copilot. make sure to make a different version before submission as this doesnt have the functinoality i want but is used for testing
-        rgba_images=[]
-        for i in range(len(self.pyramid)):
-            #rgba_images.append(cv2.cvtColor(self.pyramid[i][0], cv2.COLOR_BGRA2RGBA))
-            for j in range(len(self.pyramid[i])):
-                rgba_images.append(cv2.cvtColor(self.pyramid[i][j], cv2.COLOR_BGRA2RGBA))
-        #rgba_images = [cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA) for img in self.pyramid]
-
-        cols = len(rgba_images)
-        plt.figure(figsize=(3 * cols, 4))
-
-        
-
-        for i, img in enumerate(rgba_images):
-            bg_color = np.array([0, 0, (i*(255/5))], dtype=np.uint8)
-            h, w = img.shape[:2]
-            # Create solid background
-            background = np.ones((h, w, 3), dtype=np.float32) * bg_color
-            # Convert foreground to float 0–1
-            fg = img[..., :3].astype(np.float32) # back to being just RGB
-            alpha = img[..., 3:4].astype(np.float32) / 255.0
-
-            # Composite: out = fg*alpha + bg*(1-alpha)
-
-            comp = fg * alpha + background * (1 - alpha)
-
-            ax = plt.subplot(1, cols, i + 1)
-            ax.imshow(comp.astype(np.uint8))  # cast to uint8 for display
-            ax.set_title(f"Level {i}")
-            ax.axis("off")
-
-        #print("test live #c")
-    '''
 
     def show_pyramid_test(self):
         print("Levels:", len(self.pyramid))
@@ -144,9 +112,6 @@ class libarygaussianPyramid:
 
     
 
-
-
-
 class customGaussianPyramid(libarygaussianPyramid):
     '''the custom gaussian pyramid will use all the same methods and features as the libary version with the difference that the gaussian filtering will be done without the libary so that function alone needs to be rewritten
     '''
@@ -161,22 +126,30 @@ class customGaussianPyramid(libarygaussianPyramid):
 
 
 class matchIconToImage:
-    def __init__(self, iconPyramid, imagePyramid):
-        self.iconPyramid = iconPyramid
-        self.imagePyramid = imagePyramid
+    def __init__(self, iconsToConsider, image):
+        #old->self.iconPyramid = iconsToConsider# changed it so that the funcitons are a bit neeater
+        self.iconsPyramids=[]
+        for icon in iconsToConsider:
+            pyrami_generator = libarygaussianPyramid(icon, levels=5, octaves=3)
+            self.iconsPyramids.append(pyrami_generator.get_pyramid())
+        self.image = image# originally thought we would need an image pyramid here but rereading the spec i dont believe thats what it wants
         self.matches = []
         self.match_icons_to_image()
+        print(f"Matched {len(self.matches)} icons to the image, \n iconsPyramids shape: {len(self.iconsPyramids),len(self.iconsPyramids[0]),len(self.iconsPyramids[1])}   ")
 
     def match_icons_to_image(self):
         #this function will match the icons to the image at each level of the pyramid
         pass
 
 
-def testEnviorment():
+def testEnviormentA():
     testIcon = iconsarray[0]
-    gp = libarygaussianPyramid(testIcon, 5)
+    gp = libarygaussianPyramid(testIcon, levels=5, octaves=5)
     gp.show_pyramid_test()
     plt.tight_layout()
     plt.show()
 
-testEnviorment()
+def testEnviormentB():
+    print(matchIconToImage(iconsarray, testImagesarray[0]))
+
+testEnviormentA()
