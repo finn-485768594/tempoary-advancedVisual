@@ -135,12 +135,63 @@ class matchIconToImage:
         self.image = image# originally thought we would need an image pyramid here but rereading the spec i dont believe thats what it wants
         self.matches = []
         self.match_icons_to_image()
-        print(f"Matched {len(self.matches)} icons to the image, \n iconsPyramids shape: {len(self.iconsPyramids),len(self.iconsPyramids[0]),len(self.iconsPyramids[1])}   ")
+        print(f"Matched {len(self.matches)} icons to the image, \nIconsPyramids shape: {len(self.iconsPyramids),len(self.iconsPyramids[0]),len(self.iconsPyramids[1])}   ")
 
     def match_icons_to_image(self):
         #this function will match the icons to the image at each level of the pyramid
-        pass
+        '''
+        psuedo code so i dont get confused
+        1 iterate over each icon pyramid
+            2 iterate over each section of the test_image
+                3 get the MSE between the icon at each level and the section of the image at the same level
+                4 if the MSE is below the last MSE of that image then store the match
+        5 return all the matches found remove all matches that are above a certain MSE threshold <-- rather than a set value we could just do that it picks the x best o
 
+        matches should be sotred as [icon_index, top_pixel_value, left_pixel_value, bottom_pixel_value, right_pixel_value, MSE_value]
+        '''
+        #presteps, make vairables to be interacted with
+        bestMatchOfEachIcon=[]
+        #step 1
+        for IndexOfIcon in range(len(self.iconsPyramids)):
+            PreviousBestMSE=float('inf')#  <--- didnt know about this before but python has a representation of infinity!!!! :o
+            MatchInfo=[]
+            currenticonPyramid=self.iconsPyramids[IndexOfIcon]
+            numberoflevels=len(currenticonPyramid)
+            numberOfOctaves=len(currenticonPyramid[0])
+            for levelIndex in range(numberoflevels):
+                for octaveIndex in range(numberOfOctaves):
+                    iconImage=currenticonPyramid[levelIndex][octaveIndex]
+                    iconHeight=iconImage.shape[0]
+                    iconWidth=iconImage.shape[1]
+                    #step 2
+                    for y in range(0, self.image.shape[0]-iconHeight): #max(1, iconHeight//10)): #probably dont need this but if this takes ages it could be useful
+                        for x in range(0, self.image.shape[1]-iconWidth): #max(1, iconWidth//10)):
+                            #step 3
+                            #get the section of the image
+                            imageSection=self.image[y:y+iconHeight, x:x+iconWidth]
+                            try:
+                                '''
+                                #the icons have an alpha chanel but the images dont so we need to edit the function so that:
+                                # 1 it only compares the RGB channels of the icon to the image
+                                # 2 it only computes teh MSE for the pixels where the alpha channel is above a certain threshold (e.g., 128)
+                                '''
+                                mseValue=self.calculateMSE(iconImage, imageSection)
+                                #step 4
+                                if mseValue<PreviousBestMSE:
+                                    PreviousBestMSE=mseValue
+                                    MatchInfo=[IndexOfIcon, y, x, y+iconHeight, x+iconWidth, mseValue]
+                            except Exception as e:
+                                print(f"!!!!!ruh roh big error, see error below!!!!!\n{e}")
+                            if imageSection.shape!=iconImage.shape:
+                                print(f"!!!!!Image section shape {imageSection.shape} does not match icon shape {iconImage.shape}")
+            bestMatchOfEachIcon.append(MatchInfo)
+        #step 5
+        #for now I will set the MSE threshold to be the top 5 best matches but will set it to a better value later
+        bestMatchOfEachIcon.sort(key=lambda x: x[5]) #sort by M
+        self.matches=bestMatchOfEachIcon[:5]
+        print(f"Best matches: {self.matches}")
+
+    
 
 def testEnviormentA():
     testIcon = iconsarray[0]
@@ -150,6 +201,10 @@ def testEnviormentA():
     plt.show()
 
 def testEnviormentB():
-    print(matchIconToImage(iconsarray, testImagesarray[0]))
+    matchingObject=matchIconToImage(iconsarray, testImagesarray[0])
+    
+    #matchingObject.matches
 
-testEnviormentA()
+
+
+testEnviormentB()
