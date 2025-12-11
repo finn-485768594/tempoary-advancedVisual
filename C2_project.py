@@ -159,6 +159,7 @@ class matchIconToImage:
             numberoflevels=len(currenticonPyramid)
             numberOfOctaves=len(currenticonPyramid[0])
             for levelIndex in range(numberoflevels):
+                print(f"Matching icon {IndexOfIcon} at level {levelIndex}")
                 for octaveIndex in range(numberOfOctaves):
                     iconImage=currenticonPyramid[levelIndex][octaveIndex]
                     iconHeight=iconImage.shape[0]
@@ -175,16 +176,31 @@ class matchIconToImage:
                                 # 1 it only compares the RGB channels of the icon to the image
                                 # 2 it only computes teh MSE for the pixels where the alpha channel is above a certain threshold (e.g., 128)
                                 '''
-                                mseValue=self.calculateMSE(iconImage, imageSection)
+                                #mseValue=self.calculateMSE(iconImage, imageSection)
+                                iconAlpha = iconImage[..., 3] / 255.0
+                                mask = iconAlpha > 0.5
+
+                                iconRGB = iconImage[..., :3].astype(np.int16)
+                                sectionRGB = imageSection.astype(np.int16)
+
+                                diff = iconRGB - sectionRGB
+                                diff = diff ** 2
+
+                                # Apply mask to all channels
+                                masked_diff = diff[mask]
+
+                                MSE_withoutAlpha = masked_diff.sum()
+                                mseValue = MSE_withoutAlpha / np.sum(mask)  # Normalize by number of valid pixels
                                 #step 4
                                 if mseValue<PreviousBestMSE:
                                     PreviousBestMSE=mseValue
                                     MatchInfo=[IndexOfIcon, y, x, y+iconHeight, x+iconWidth, mseValue]
                             except Exception as e:
                                 print(f"!!!!!ruh roh big error, see error below!!!!!\n{e}")
-                            if imageSection.shape!=iconImage.shape:
-                                print(f"!!!!!Image section shape {imageSection.shape} does not match icon shape {iconImage.shape}")
+                                if imageSection.shape!=iconImage.shape:
+                                    print(f"!!!!!Image section shape {imageSection.shape} does not match icon shape {iconImage.shape}")
             bestMatchOfEachIcon.append(MatchInfo)
+            print(f"Best match for icon {IndexOfIcon}: {MatchInfo}")
         #step 5
         #for now I will set the MSE threshold to be the top 5 best matches but will set it to a better value later
         bestMatchOfEachIcon.sort(key=lambda x: x[5]) #sort by M
@@ -201,7 +217,7 @@ def testEnviormentA():
     plt.show()
 
 def testEnviormentB():
-    matchingObject=matchIconToImage(iconsarray, testImagesarray[0])
+    matchingObject=matchIconToImage(iconsarray, testImagesarray[3])
     
     #matchingObject.matches
 
