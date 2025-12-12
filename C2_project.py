@@ -29,7 +29,7 @@ class libarygaussianPyramid:
         self.sigmaScale=0.5
         self.pyramid = [[image]] #as i prefer appending my pyramid is going to be upside down if it gets printed but it works the exact same
         self.kernal_size = (9, 9)
-        
+        self.downsample_scale = 0.75
         self.build_pyramid()
         
         #self.get_pyramid()
@@ -47,10 +47,16 @@ class libarygaussianPyramid:
         #print(f"Pyramid now has {len(self.pyramid)} levels")
         
         for i in range(1, self.levels):
-            image = cv2.pyrDown(self.pyramid[i - 1][0])
+            #image = cv2.pyrDown(self.pyramid[i - 1][0])
             #note to self: cv2.pyrDown 
             #Applies a 5×5 Gaussian blur to the image
             #Downsamples it by a factor of 2 in width and height
+
+            heightOfPrevious, widthOfPrevious = self.pyramid[i - 1][0].shape[:2]
+            new_w = int(widthOfPrevious * self.downsample_scale)
+            new_h = int(heightOfPrevious * self.downsample_scale)
+
+            image = cv2.resize(self.pyramid[i - 1][0],(new_w, new_h),interpolation=cv2.INTER_AREA)
             this_level = [image]
             #print("test level")
             for j in range(1, (self.octaves)): 
@@ -135,21 +141,135 @@ class matchIconToImage:
         self.image = image# originally thought we would need an image pyramid here but rereading the spec i dont believe thats what it wants
         self.matches = []
         self.match_icons_to_image()
-        print(f"Matched {len(self.matches)} icons to the image, \n iconsPyramids shape: {len(self.iconsPyramids),len(self.iconsPyramids[0]),len(self.iconsPyramids[1])}   ")
+        print(f"Matched {len(self.matches)} icons to the image, \nIconsPyramids shape: {len(self.iconsPyramids),len(self.iconsPyramids[0]),len(self.iconsPyramids[1])}   ")
 
     def match_icons_to_image(self):
         #this function will match the icons to the image at each level of the pyramid
-        pass
+        '''
+        psuedo code so i dont get confused
+        1 iterate over each icon pyramid
+            2 iterate over each section of the test_image
+                3 get the MSE between the icon at each level and the section of the image at the same level
+                4 if the MSE is below the last MSE of that image then store the match
+        5 return all the matches found remove all matches that are above a certain MSE threshold <-- rather than a set value we could just do that it picks the x best o
 
+        matches should be sotred as [icon_index, top_pixel_value, left_pixel_value, bottom_pixel_value, right_pixel_value, MSE_value]
+        '''
+        #presteps, make vairables to be interacted with
+        bestMatchOfEachIcon=[]
+        #step 1
+        for IndexOfIcon in range(len(self.iconsPyramids)):
+            PreviousBestMSE=float('inf')#  <--- didnt know about this before but python has a representation of infinity!!!! :o
+            MatchInfo=[]
+            currenticonPyramid=self.iconsPyramids[IndexOfIcon]
+            numberoflevels=len(currenticonPyramid)
+            numberOfOctaves=len(currenticonPyramid[0])
+            matchedImageSection=[]
+            matchedImage=[]
+            for levelIndex in range(numberoflevels):
+                print(f"Matching icon {IndexOfIcon} at level {levelIndex}")
+                for octaveIndex in range(numberOfOctaves):
+                    print(f"  Using octave {octaveIndex}")
+                    iconImage=currenticonPyramid[levelIndex][octaveIndex]
+                    iconHeight=iconImage.shape[0]
+                    iconWidth=iconImage.shape[1]
+                    #step 2
+                    for y in range(0, self.image.shape[0]-iconHeight): #max(1, iconHeight//10)): #probably dont need this but if this takes ages it could be useful
+                        for x in range(0, self.image.shape[1]-iconWidth): #max(1, iconWidth//10)):
+                            #step 3
+                            #get the section of the image
+                            imageSection=self.image[y:y+iconHeight, x:x+iconWidth]
+                            try:
+                                '''
+                                #the icons have an alpha chanel but the images dont so we need to edit the function so that:
+                                # 1 it only compares the RGB channels of the icon to the image
+                                # 2 it only computes teh MSE for the pixels where the alpha channel is above a certain threshold (e.g., 128)
+                                '''
+
+
+                                
+                                #mseValue=self.calculateMSE(iconImage, imageSection)
+                                iconAlpha = iconImage[..., 3] / 255.0
+                                mask = iconAlpha > 0.5
+
+                                iconRGB = iconImage[..., :3].astype(np.int16)
+                                sectionRGB = imageSection.astype(np.int16)
+
+                                diff = (iconRGB - sectionRGB)**2
+                                
+
+                                # Apply mask to all channels
+                                masked_diff = diff[mask]
+
+                                MSE_withoutAlpha = masked_diff.sum()
+                                mseValue = MSE_withoutAlpha/ np.count_nonzero(mask)  # Normalize by number of valid pixels prevents just choosing the smallest one
+                                '''
+                                mseValue=0 
+                                for i in range(len(imageSection)):
+                                    for j in range(len(imageSection[0])):
+                                        if iconImage[i][j][3]>128:
+                                            diff = (int(iconImage[i][j][0]) - int(imageSection[i][j][0]))**2
+                                            diff += (int(iconImage[i][j][1]) - int(imageSection[i][j][1]))**2
+                                            diff += (int(iconImage[i][j][2]) - int(imageSection[i][j][2]))**2
+                                            mseValue += diff
+                                '''
+                                #step 4
+                                if mseValue<PreviousBestMSE:
+                                    PreviousBestMSE=mseValue
+                                    MatchInfo=[IndexOfIcon, y, x, y+iconHeight, x+iconWidth, mseValue]
+                                    matchedImageSection=imageSection
+                                    matchedImage=iconImage
+                            except Exception as e:
+                                print(f"!!!!!ruh roh big error, see error below!!!!!\n{e}")
+                                
+            bestMatchOfEachIcon.append(MatchInfo)
+            print(f"Best match for icon {IndexOfIcon}: {MatchInfo}")
+            
+            
+            plt.figure(figsize=(6, 3))
+
+            # Show the matched section from the test image
+            plt.subplot(1, 2, 1)
+            plt.imshow(matchedImageSection)
+            plt.title(f"Matched Section (icon {IndexOfIcon})")
+            plt.axis("off")
+
+            # Show the icon that matched
+            plt.subplot(1, 2, 2)
+            # Strip alpha for display
+            plt.imshow(matchedImage[..., :3])
+            plt.title(f"Matched Icon {IndexOfIcon}")
+            plt.axis("off")
+
+            plt.tight_layout()
+            plt.show()
+        #step 5
+        #for now I will set the MSE threshold to be the top 5 best matches but will set it to a better value later
+        bestMatchOfEachIcon.sort(key=lambda x: x[5]) #sort by M
+        self.matches=bestMatchOfEachIcon[:5]
+        print(f"Best matches: {self.matches}")
+        
+
+    
 
 def testEnviormentA():
-    testIcon = iconsarray[0]
-    gp = libarygaussianPyramid(testIcon, levels=5, octaves=5)
+    #testIcon = iconsarray[0]
+    #gp = libarygaussianPyramid(testIcon, levels=5, octaves=2)
+    #gp.show_pyramid_test()
+    #plt.tight_layout()
+    #plt.show()
+    #i=input("press enter to continue to next test") 
+    testIcon = testImagesarray[14]
+    gp = libarygaussianPyramid(testIcon, levels=5, octaves=2)
     gp.show_pyramid_test()
     plt.tight_layout()
     plt.show()
 
 def testEnviormentB():
-    print(matchIconToImage(iconsarray, testImagesarray[0]))
+    matchingObject=matchIconToImage(iconsarray, testImagesarray[14])# for some reason image 14 seems to have correspond to image_4
+    
+    #matchingObject.matches
 
-testEnviormentA()
+
+
+testEnviormentB()
