@@ -164,6 +164,8 @@ class matchIconToImage:
             currenticonPyramid=self.iconsPyramids[IndexOfIcon]
             numberoflevels=len(currenticonPyramid)
             numberOfOctaves=len(currenticonPyramid[0])
+            matchedImageSection=[]
+            matchedImage=[]
             for levelIndex in range(numberoflevels):
                 print(f"Matching icon {IndexOfIcon} at level {levelIndex}")
                 for octaveIndex in range(numberOfOctaves):
@@ -215,16 +217,38 @@ class matchIconToImage:
                                 if mseValue<PreviousBestMSE:
                                     PreviousBestMSE=mseValue
                                     MatchInfo=[IndexOfIcon, y, x, y+iconHeight, x+iconWidth, mseValue]
+                                    matchedImageSection=imageSection
+                                    matchedImage=iconImage
                             except Exception as e:
                                 print(f"!!!!!ruh roh big error, see error below!!!!!\n{e}")
                                 
             bestMatchOfEachIcon.append(MatchInfo)
             print(f"Best match for icon {IndexOfIcon}: {MatchInfo}")
+            
+            
+            plt.figure(figsize=(6, 3))
+
+            # Show the matched section from the test image
+            plt.subplot(1, 2, 1)
+            plt.imshow(matchedImageSection)
+            plt.title(f"Matched Section (icon {IndexOfIcon})")
+            plt.axis("off")
+
+            # Show the icon that matched
+            plt.subplot(1, 2, 2)
+            # Strip alpha for display
+            plt.imshow(matchedImage[..., :3])
+            plt.title(f"Matched Icon {IndexOfIcon}")
+            plt.axis("off")
+
+            plt.tight_layout()
+            plt.show()
         #step 5
         #for now I will set the MSE threshold to be the top 5 best matches but will set it to a better value later
         bestMatchOfEachIcon.sort(key=lambda x: x[5]) #sort by M
         self.matches=bestMatchOfEachIcon[:5]
         print(f"Best matches: {self.matches}")
+        
 
     
 
