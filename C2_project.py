@@ -158,7 +158,7 @@ class matchIconToImage:
         #presteps, make vairables to be interacted with
         bestMatchOfEachIcon=[]
         #step 1
-        for IndexOfIcon in range(len(self.iconsPyramids)):
+        for IndexOfIcon in range(1):#(len(self.iconsPyramids)):
             PreviousBestMSE=float('inf')#  <--- didnt know about this before but python has a representation of infinity!!!! :o
             MatchInfo=[]
             currenticonPyramid=self.iconsPyramids[IndexOfIcon]
@@ -187,7 +187,7 @@ class matchIconToImage:
                                 '''
 
 
-                                
+                                '''
                                 #mseValue=self.calculateMSE(iconImage, imageSection)
                                 iconAlpha = iconImage[..., 3] / 255.0
                                 mask = iconAlpha > 0.5
@@ -204,7 +204,10 @@ class matchIconToImage:
                                 MSE_withoutAlpha = masked_diff.sum()
                                 mseValue = MSE_withoutAlpha/ np.count_nonzero(mask)  # Normalize by number of valid pixels prevents just choosing the smallest one
                                 '''
+
+                                
                                 mseValue=0 
+                                normalizenumber=0
                                 for i in range(len(imageSection)):
                                     for j in range(len(imageSection[0])):
                                         if iconImage[i][j][3]>128:
@@ -212,7 +215,14 @@ class matchIconToImage:
                                             diff += (int(iconImage[i][j][1]) - int(imageSection[i][j][1]))**2
                                             diff += (int(iconImage[i][j][2]) - int(imageSection[i][j][2]))**2
                                             mseValue += diff
-                                '''
+                                            normalizenumber+=1
+                                        #else:
+                                        #    mseValue += 0
+                                        #    normalizenumber+=1
+                                            #this may need to be removed will have to see
+
+                                mseValue=mseValue/normalizenumber
+                                
                                 #step 4
                                 if mseValue<PreviousBestMSE:
                                     PreviousBestMSE=mseValue
@@ -259,14 +269,14 @@ def testEnviormentA():
     #plt.tight_layout()
     #plt.show()
     #i=input("press enter to continue to next test") 
-    testIcon = testImagesarray[14]
+    testIcon = testImagesarray[18]
     gp = libarygaussianPyramid(testIcon, levels=5, octaves=2)
     gp.show_pyramid_test()
     plt.tight_layout()
     plt.show()
 
 def testEnviormentB():
-    matchingObject=matchIconToImage(iconsarray, testImagesarray[14])# for some reason image 14 seems to have correspond to image_4
+    matchingObject=matchIconToImage(iconsarray, testImagesarray[18])# for some reason image 14 seems to have correspond to image_4  and 18 is 8
     
     #matchingObject.matches
 
