@@ -44,37 +44,17 @@ class libarygaussianPyramid:
         #self.get_pyramid()
 
     def build_pyramid(self):
-        
         image=self.pyramid[0][0]
         this_level = [image]
-        for j in range(1, (self.octaves)): 
-            sigma_value=(j)*self.sigmaScale# i was told this was a sesible way to increase the sigma value            #print(j)
-            this_level.append(cv2.GaussianBlur(image, self.kernal_size, sigmaX=sigma_value, sigmaY=sigma_value))
-        #print(f"Level 0 has {len(this_level)} images of size {this_level[0].shape}")
-        self.pyramid = []  # Reset pyramid to empty list
-        self.pyramid.append(this_level)
-        #print(f"Pyramid now has {len(self.pyramid)} levels")
         
         for i in range(1, self.levels):
-            #image = cv2.pyrDown(self.pyramid[i - 1][0])
+            image = cv2.pyrDown(self.pyramid[i - 1][0])
             #note to self: cv2.pyrDown 
             #Applies a 5×5 Gaussian blur to the image
             #Downsamples it by a factor of 2 in width and height
-
-            heightOfPrevious, widthOfPrevious = self.pyramid[i - 1][0].shape[:2]
-            new_w = int(widthOfPrevious * self.downsample_scale)
-            new_h = int(heightOfPrevious * self.downsample_scale)
-
-            image = cv2.resize(self.pyramid[i - 1][0],(new_w, new_h),interpolation=cv2.INTER_AREA)
             this_level = [image]
-            #print("test level")
-            for j in range(1, (self.octaves)): 
-                #print(j)
-                sigma_value=j*self.sigmaScale
-                this_level.append(cv2.GaussianBlur(image, self.kernal_size,  sigmaX=sigma_value, sigmaY=sigma_value))
-            #print(f"Level {i} has {len(this_level)} images of size {this_level[0].shape}")
             self.pyramid.append(this_level)
-            #print(f"Pyramid now has {len(self.pyramid)} levels")
+        #print(f"Pyramid now has {len(self.pyramid)} levels")
           
     def redefine_pyramid(self, image):
         self.pyramid = [[image]]
@@ -100,7 +80,7 @@ class libarygaussianPyramid:
         plt.figure(figsize=(4 * cols, 4 * rows))
 
         for i in range(rows):            # pyramid level
-            for j in range(len(self.pyramid[i])):   # images inside level
+            for j in range(len(self.pyramid[i])):   # images inside level  <--- with octaves removed should now just be 1 (im not getting rid of it hough incase I add octaves back)
 
                 img = self.pyramid[i][j]
                 img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA)
@@ -125,15 +105,107 @@ class libarygaussianPyramid:
 
 
 
+class matchIconToImage:
+    def __init__(self, iconsToConsider, image, levelsToIMAGEpyramid=3, IconLevelsBelowImageSizeToCheck=3):
+        self.iconsToConsider=iconsToConsider
+        self.image = image
+        self.matches = []
+        self.levelsToIMAGEpyramid=levelsToIMAGEpyramid
+        self.IconLevelsBelowImageSizeToCheck=IconLevelsBelowImageSizeToCheck
+        ########################################################################
+        #pyrami_generator = libarygaussianPyramid(image, levels=levelsToIMAGEpyramid)
+        #self.imagePyramids=(pyrami_generator.get_pyramid())
+        ########################################################################
+        self.iconsPyramids=[]
+        for icon in iconsToConsider:
+            pyrami_generator = libarygaussianPyramid(icon, levels=(levelsToIMAGEpyramid+IconLevelsBelowImageSizeToCheck))
+            self.iconsPyramids.append(pyrami_generator.get_pyramid())
+
+    def checkIndividualImage(self,imageToCheck,index_of_image_pyramid,iconPyramid):
+        icons_to_check=iconPyramid[(index_of_image_pyramid):(index_of_image_pyramid + self.IconLevelsBelowImageSizeToCheck)]
+        #BestMatchSoFar: [error,top,left,bottom,right]
+        BestMatchSoFar = [99999,0 , 0   ,1     , 1   ] #just place holders
+        print(f"stop0 {len(icons_to_check)} : {len(icons_to_check[0])} : {icons_to_check[0][0].shape}")
+        for iconSizeIndex in range(0,len(icons_to_check)):
+            iconHeight=icons_to_check[iconSizeIndex][0].shape[1]
+            iconWidth=icons_to_check[iconSizeIndex][0].shape[0]
+            iconImage=icons_to_check[iconSizeIndex][0]
+            print(f"stopA {imageToCheck.shape} : {iconHeight} : {iconWidth}")
+            for y in range(0, (imageToCheck.shape[0]-iconHeight)):
+                print(f"_____________stopB  y:{y}")
+                for x in range(0, (imageToCheck.shape[1]-iconWidth)): 
+                    imageSection=imageToCheck[y:y+iconHeight, x:x+iconWidth]
+                    #the main difficulty here is dealing with the fact that icon is RGBA and image is RGB
+                    mseValue=0 
+                    for i in range(0,iconHeight):
+                        for j in range(0,iconWidth):
+                            #if iconImage[i][j][3]>128:
+                            diff = (int(iconImage[i][j][0]) - int(imageSection[i][j][0]))**2
+                            diff += (int(iconImage[i][j][1]) - int(imageSection[i][j][1]))**2
+                            diff += (int(iconImage[i][j][2]) - int(imageSection[i][j][2]))**2
+                            mseValue += diff
+                    mseValue=mseValue/(iconHeight*iconWidth)
+                    if mseValue<BestMatchSoFar[0]:
+                        BestMatchSoFar=[mseValue, y, x, y+iconHeight, x+iconWidth]
+        return BestMatchSoFar
+
+                            
+                                
+                            
+
+                    
+
+        
+
+    def checkIndividualIconPyramid(self,imagePyramid,IconPyramid):
+        pass
+    
+
+
+
+
 def testEnviormentA():
-    #testIcon = iconsarray[0]
-    #gp = libarygaussianPyramid(testIcon, levels=5, octaves=2)
+    testIcon = iconsarray[0]
+    gp = libarygaussianPyramid(testIcon, levels=5)
+    gp.show_pyramid_test()
+    plt.tight_layout()
+    plt.show()
+    i=input("press enter to continue to next test") 
+    testIcon = testImagesarray[18]
+    gp = libarygaussianPyramid(testIcon, levels=6)
+    gp.show_pyramid_test()
+    plt.tight_layout()
+    plt.show()
+
+def test_checkIndividualImage_function():
+    testIcon = iconsarray[0]
+    testImage = testImagesarray[18]
+    testImage= cv2.pyrDown(testImage)
+    pyrami_generator = libarygaussianPyramid(testIcon, levels=(6))
+    testiconPyramid=pyrami_generator.get_pyramid()
+    print(f"testIcon pyramid: {len(testiconPyramid)}")
+    ###########################################################################
+    #gp = libarygaussianPyramid(testImage, levels=1)
     #gp.show_pyramid_test()
     #plt.tight_layout()
     #plt.show()
     #i=input("press enter to continue to next test") 
-    testIcon = testImagesarray[18]
-    gp = libarygaussianPyramid(testIcon, levels=5, octaves=2)
-    gp.show_pyramid_test()
-    plt.tight_layout()
+    #pyrami_generator.show_pyramid_test()
+    #plt.tight_layout()
+    #plt.show()
+    #############################################################################
+    #testMatchClass=matchIconToImage(iconsarray,testiconPyramid)
+    #result=testMatchClass.checkIndividualImage(testImage,1,testiconPyramid)#01-lighthouse,257,4,385,132 -> 128.5,2,192.5,66
+    #print(result)
+    imageSection=testImagesarray[18][4:132, 256:384]
+    print(imageSection)
+    plt.figure(figsize=(4, 4))
+    plt.imshow(imageSection)
+    plt.axis("off")
+    plt.title("Image Section")
     plt.show()
+
+
+
+    
+test_checkIndividualImage_function()
