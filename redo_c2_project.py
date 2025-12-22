@@ -39,14 +39,22 @@ class libarygaussianPyramid:
         self.pyramid = [[image]] #as i prefer appending my pyramid is going to be upside down if it gets printed but it works the exact same
         self.kernal_size = (5, 5)
         self.downsample_scale = 0.5
-        self.build_pyramid()
+        #self.build_pyramid()
         
         #self.get_pyramid()
 
-    def build_pyramid(self):
+    def build_pyramid_image(self):
         image=self.pyramid[0][0]
         this_level = [image]
-        
+        '''
+        the pyramids and code was originaly built with them halving in size each time
+        so:
+        [..., X , X/2 , ...]
+        but now it the size of the next two levels should be:
+        [..., X , 3X/4, x/2,...]
+        this means the down sampling factor between each level wont be constant as sometimes it will be 75% and sometimes 66.6%
+        but it shouldnt effect the code much, this function is the images so will be the same as before only the icons will use the new pyramid structure
+        '''
         for i in range(1, self.levels):
             image = cv2.pyrDown(self.pyramid[i - 1][0])
             #note to self: cv2.pyrDown 
@@ -54,7 +62,41 @@ class libarygaussianPyramid:
             #Downsamples it by a factor of 2 in width and height
             this_level = [image]
             self.pyramid.append(this_level)
+            #as well as this i want a 
         #print(f"Pyramid now has {len(self.pyramid)} levels")
+
+    def build_pyramid_icon(self):
+        image=self.pyramid[0][0]
+        this_level = [image]
+        '''
+        the pyramids and code was originaly built with them halving in size each time
+        so:
+        [..., X , X/2 , ...]
+        but now it the size of the next two levels should be:
+        [..., X , 3X/4, x/2,...]
+        this means the down sampling factor between each level wont be constant as sometimes it will be 75% and sometimes 66.6%
+        but it shouldnt effect the code much, this function is the images so will be the same as before only the icons will use the new pyramid structure
+        '''
+        for i in range(1, self.levels):
+            ''' now add the next level which is 75% of i-1'''
+            imageX=self.pyramid[i - 1][0]
+            image75Percent=cv2.GaussianBlur(imageX, self.kernal_size,sigmaX=1, sigmaY=1)
+            heightOfPrevious, widthOfPrevious = imageX.shape[:2]
+            new_w = int(widthOfPrevious * self.downsample_scale)
+            new_h = int(heightOfPrevious * self.downsample_scale)
+            image75Percent = cv2.resize(image75Percent,(new_w, new_h),interpolation=cv2.INTER_AREA)
+            this_level = [image75Percent]
+            self.pyramid.append(this_level)
+            ''' now add the next level which is 50% of i-1'''#same as before
+            image50Percent = cv2.pyrDown(imageX)
+            #note to self: cv2.pyrDown 
+            #Applies a 5×5 Gaussian blur to the image
+            #Downsamples it by a factor of 2 in width and height
+            this_level = [image50Percent]
+            self.pyramid.append(this_level)
+            ''' now add the next level which is '''
+            
+        
           
     def redefine_pyramid(self, image):
         self.pyramid = [[image]]
@@ -106,7 +148,7 @@ class libarygaussianPyramid:
 
 
 class matchIconToImage:
-    def __init__(self, iconsToConsider, image, levelsToIMAGEpyramid=3, IconLevelsBelowImageSizeToCheck=4):
+    def __init__(self, iconsToConsider, image, levelsToIMAGEpyramid=3, IconLevelsBelowImageSizeToCheck=7):
         self.iconsToConsider=iconsToConsider
         self.image = image
         self.matches = []
@@ -119,6 +161,7 @@ class matchIconToImage:
         self.iconsPyramids=[]
         for icon in iconsToConsider:
             pyrami_generator = libarygaussianPyramid(icon, levels=(levelsToIMAGEpyramid+IconLevelsBelowImageSizeToCheck))
+            pyrami_generator.build_pyramid_icon()
             self.iconsPyramids.append(pyrami_generator.get_pyramid())
 
     def checkIndividualImageFirst(self,imageToCheck,index_of_image_pyramid,iconPyramid):
@@ -152,6 +195,7 @@ class matchIconToImage:
                             
     def checkReducedAreaIndividualImage(self,imageToCheck,index_of_image_pyramid,iconPyramid,top,left,borderweidth=4,indextoCheck=0):
         '''this code is almost the exact same as the previous one but this time we know roughly where the image is so only need to check in that location +_ the border width'''
+        
         icons_to_check=iconPyramid[(index_of_image_pyramid):(index_of_image_pyramid + self.IconLevelsBelowImageSizeToCheck)]
         #BestMatchSoFar: [error,top,left,bottom,right]
         BestMatchSoFar = [99999,0 , 0   ,1     , 1   ] #just place holders
@@ -194,6 +238,7 @@ class matchIconToImage:
         '''first do a full image search for the icon at the smallest image size'''
         numberOfImagesInPyramid=len(imagePyramid)
         smallestImage=(imagePyramid.pop())[0]#removes it but as its local it will just be reset each time this function is called
+        
         #print(f"image current shape{smallestImage}")
         scalledDownCoordiates=self.checkIndividualImageFirst(smallestImage,(numberOfImagesInPyramid-1),iconPyramid)
         
@@ -205,7 +250,9 @@ class matchIconToImage:
                 indexBestMatchWasFoundAt=scalledDownCoordiates[5] #this is proportional to the image size
                 #print(f"best coordiantes from previous: {scalledDownCoordiates}")
                 smallestImage=(imagePyramid.pop())[0]
-                scalledDownCoordiates=self.checkReducedAreaIndividualImage(smallestImage,(numberOfImagesInPyramid-1-count),iconPyramid,top=topStart,left=leftStart,borderweidth=4,indextoCheck=indexBestMatchWasFoundAt)
+                #by changing the way the two gaussian pyramids work I have to convert the index of the image pyramid into the corresponding index for the image icon
+                correspondingIndex=((numberOfImagesInPyramid-1-count)*2)-1  # the index of icon with the same size as index n can be represented as 2n-1
+                scalledDownCoordiates=self.checkReducedAreaIndividualImage(smallestImage,(correspondingIndex),iconPyramid,top=topStart,left=leftStart,borderweidth=4,indextoCheck=indexBestMatchWasFoundAt)
                 count+=1
                 #print(f"best new coordiantes: {scalledDownCoordiates}")
             else:
@@ -220,9 +267,11 @@ class matchIconToImage:
         
         for iconIndex in range(len(iconsList)):
             pyrami_generator_image = libarygaussianPyramid(image , levels=(self.levelsToIMAGEpyramid))
+            pyrami_generator_image.build_pyramid_image()
             imagePyramid=pyrami_generator_image.get_pyramid()
             print(f"currently working on Icon {iconIndex}  ")#the current best fit for each it: {best_fit_for_each_image}")
             pyrami_generator_icon = libarygaussianPyramid(iconsList[iconIndex] , levels=(self.levelsToIMAGEpyramid+self.IconLevelsBelowImageSizeToCheck))
+            pyrami_generator_icon.build_pyramid_icon()
             iconPyramid=pyrami_generator_icon.get_pyramid()
             #print(f"favraibles before going in {len(imagePyramid),len(imagePyramid[0]),imagePyramid[0][0].shape} : {len(iconPyramid),len(iconPyramid[0]),iconPyramid[0][0].shape}")
             result=self.checkIndividualIconPyramid(imagePyramid,iconPyramid)
@@ -285,8 +334,10 @@ def test_checkIndividualIconPyramid_function():
     testIcon = iconsarray[0]
     testImage = testImagesarray[18]
     pyrami_generator = libarygaussianPyramid(testImage , levels=(3))
+    pyrami_generator.build_pyramid_image()
     testImagePyramid=pyrami_generator.get_pyramid()
-    pyrami_generator = libarygaussianPyramid(testIcon, levels=(7))
+    pyrami_generator = libarygaussianPyramid(testIcon, levels=(3))
+    pyrami_generator.build_pyramid_icon()
     testiconPyramid=pyrami_generator.get_pyramid()
     print(f"testIcon pyramid: {len(testiconPyramid)}")
     ###########################################################################
@@ -325,4 +376,4 @@ def test_checkAllIconsAgainstImage_function():
     
 
 
-test_checkAllIconsAgainstImage_function()
+test_checkIndividualIconPyramid_function()
