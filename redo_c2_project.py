@@ -124,13 +124,13 @@ class matchIconToImage:
     def checkIndividualImageFirst(self,imageToCheck,index_of_image_pyramid,iconPyramid):
         icons_to_check=iconPyramid[(index_of_image_pyramid):(index_of_image_pyramid + self.IconLevelsBelowImageSizeToCheck)]
         #BestMatchSoFar: [error,top,left,bottom,right]
-        BestMatchSoFar = [99999,0 , 0   ,1     , 1   ] #just place holders
-        print(f"stop0 {len(icons_to_check)} : {len(icons_to_check[0])} : {icons_to_check[0][0].shape}")
+        BestMatchSoFar = [99999,0 , 0   ,1     , 1   ,0] #just place holders
+        #print(f"stop0 {len(icons_to_check)} : {len(icons_to_check[0])} : {icons_to_check[0][0].shape}")
         for iconSizeIndex in range(0,len(icons_to_check)):
             iconHeight=icons_to_check[iconSizeIndex][0].shape[1]
             iconWidth=icons_to_check[iconSizeIndex][0].shape[0]
             iconImage=icons_to_check[iconSizeIndex][0]
-            print(f"stopA {imageToCheck.shape} : {iconHeight} : {iconWidth}")
+            #print(f"stopA {imageToCheck.shape} : {iconHeight} : {iconWidth}")
             for y in range(0, (imageToCheck.shape[0]-iconHeight)):
                 #print(f"_____________stopB  y:{y}")
                 for x in range(0, (imageToCheck.shape[1]-iconWidth)): 
@@ -146,41 +146,41 @@ class matchIconToImage:
                             mseValue += diff
                     mseValue=mseValue/(iconHeight*iconWidth)
                     if mseValue<BestMatchSoFar[0]:
-                        BestMatchSoFar=[mseValue, y, x, y+iconHeight, x+iconWidth]
+                        BestMatchSoFar=[mseValue, y, x, y+iconHeight, x+iconWidth,iconSizeIndex]
         return BestMatchSoFar
 
                             
-    def checkReducedAreaIndividualImage(self,imageToCheck,index_of_image_pyramid,iconPyramid,top,left,borderweidth=4):
+    def checkReducedAreaIndividualImage(self,imageToCheck,index_of_image_pyramid,iconPyramid,top,left,borderweidth=4,indextoCheck=0):
         '''this code is almost the exact same as the previous one but this time we know roughly where the image is so only need to check in that location +_ the border width'''
         icons_to_check=iconPyramid[(index_of_image_pyramid):(index_of_image_pyramid + self.IconLevelsBelowImageSizeToCheck)]
         #BestMatchSoFar: [error,top,left,bottom,right]
         BestMatchSoFar = [99999,0 , 0   ,1     , 1   ] #just place holders
-        print(f"stop0 ____reduced area____ {len(icons_to_check)} : {len(icons_to_check[0])} : {icons_to_check[0][0].shape}")
-        for iconSizeIndex in range(0,len(icons_to_check)):
-            iconHeight=icons_to_check[iconSizeIndex][0].shape[1]
-            iconWidth=icons_to_check[iconSizeIndex][0].shape[0]
-            iconImage=icons_to_check[iconSizeIndex][0]
-            print(f"stopA {imageToCheck.shape} : {iconHeight} : {iconWidth}")
-            
-            for y in range(0, (2*borderweidth)):
-                #to prevetn errors we will check that none of the image would be out of bounds in this search if it is then we skip this one!
-                if(((y+top-borderweidth)>=0) and (y+top-borderweidth+iconHeight)<len(imageToCheck)):
-                    for x in range(0, (2*borderweidth)): 
-                        #to prevetn errors we will check that none of the image would be out of bounds in this search if it is then we skip this one!
-                        if(((x+left-borderweidth)>=0) and (x+iconWidth+left-borderweidth)<len(imageToCheck)):
-                            imageSection=imageToCheck[(y+top-borderweidth):(y+top-borderweidth+iconHeight), (x+left-borderweidth):(x+iconWidth+left-borderweidth)]
-                            print(f"image section shape{imageSection.shape} bounds used {(y+top-borderweidth), (x+left-borderweidth),(y+top-borderweidth+iconHeight),(x+iconWidth+left-borderweidth)}")
-                            mseValue=0 
-                            for i in range(0,iconHeight):
-                                for j in range(0,iconWidth):
-                                    #if iconImage[i][j][3]>128:
-                                    diff = (int(iconImage[i][j][0]) - int(imageSection[i][j][0]))**2
-                                    diff += (int(iconImage[i][j][1]) - int(imageSection[i][j][1]))**2
-                                    diff += (int(iconImage[i][j][2]) - int(imageSection[i][j][2]))**2
-                                    mseValue += diff
-                            mseValue=mseValue/(iconHeight*iconWidth)
-                            if mseValue<BestMatchSoFar[0]:
-                                BestMatchSoFar=[mseValue, (y+top-borderweidth), (x+left-borderweidth), (y+top-borderweidth+iconHeight), (x+iconWidth+left-borderweidth)]
+        #print(f"stop0 ____reduced area____ {len(icons_to_check)} : {len(icons_to_check[0])} : {icons_to_check[0][0].shape}")
+        iconSizeIndex=indextoCheck
+        iconHeight=icons_to_check[iconSizeIndex][0].shape[1]
+        iconWidth=icons_to_check[iconSizeIndex][0].shape[0]
+        iconImage=icons_to_check[iconSizeIndex][0]
+        #print(f"stopA {imageToCheck.shape} : {iconHeight} : {iconWidth}")
+        
+        for y in range(0, (2*borderweidth)):
+            #to prevetn errors we will check that none of the image would be out of bounds in this search if it is then we skip this one!
+            if(((y+top-borderweidth)>=0) and (y+top-borderweidth+iconHeight)<len(imageToCheck)):
+                for x in range(0, (2*borderweidth)): 
+                    #to prevetn errors we will check that none of the image would be out of bounds in this search if it is then we skip this one!
+                    if(((x+left-borderweidth)>=0) and (x+iconWidth+left-borderweidth)<len(imageToCheck)):
+                        imageSection=imageToCheck[(y+top-borderweidth):(y+top-borderweidth+iconHeight), (x+left-borderweidth):(x+iconWidth+left-borderweidth)]
+                        #print(f"image section shape{imageSection.shape} bounds used {(y+top-borderweidth), (x+left-borderweidth),(y+top-borderweidth+iconHeight),(x+iconWidth+left-borderweidth)}")
+                        mseValue=0 
+                        for i in range(0,iconHeight):
+                            for j in range(0,iconWidth):
+                                #if iconImage[i][j][3]>128:
+                                diff = (int(iconImage[i][j][0]) - int(imageSection[i][j][0]))**2
+                                diff += (int(iconImage[i][j][1]) - int(imageSection[i][j][1]))**2
+                                diff += (int(iconImage[i][j][2]) - int(imageSection[i][j][2]))**2
+                                mseValue += diff
+                        mseValue=mseValue/(iconHeight*iconWidth)
+                        if mseValue<BestMatchSoFar[0]:
+                            BestMatchSoFar=[mseValue, (y+top-borderweidth), (x+left-borderweidth), (y+top-borderweidth+iconHeight), (x+iconWidth+left-borderweidth),iconSizeIndex]
         return BestMatchSoFar
                           
                             
@@ -204,9 +204,10 @@ class matchIconToImage:
             if(scalledDownCoordiates[0]!=99999):
                 topStart=scalledDownCoordiates[1]*2
                 leftStart=scalledDownCoordiates[2]*2
+                indexBestMatchWasFoundAt=scalledDownCoordiates[5] #this is proportional to the image size
                 print(f"best coordiantes from previous: {scalledDownCoordiates}")
                 smallestImage=(imagePyramid.pop())[0]
-                scalledDownCoordiates=self.checkReducedAreaIndividualImage(smallestImage,(numberOfImagesInPyramid-1-count),iconPyramid,top=topStart,left=leftStart,borderweidth=4)
+                scalledDownCoordiates=self.checkReducedAreaIndividualImage(smallestImage,(numberOfImagesInPyramid-1-count),iconPyramid,top=topStart,left=leftStart,borderweidth=4,indextoCheck=indexBestMatchWasFoundAt)
                 count+=1
                 print(f"best new coordiantes: {scalledDownCoordiates}")
             else:
