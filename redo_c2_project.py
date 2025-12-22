@@ -183,8 +183,6 @@ class matchIconToImage:
                             BestMatchSoFar=[mseValue, (y+top-borderweidth), (x+left-borderweidth), (y+top-borderweidth+iconHeight), (x+iconWidth+left-borderweidth),iconSizeIndex]
         return BestMatchSoFar
                           
-                            
-
                     
 
         
@@ -205,17 +203,33 @@ class matchIconToImage:
                 topStart=scalledDownCoordiates[1]*2
                 leftStart=scalledDownCoordiates[2]*2
                 indexBestMatchWasFoundAt=scalledDownCoordiates[5] #this is proportional to the image size
-                print(f"best coordiantes from previous: {scalledDownCoordiates}")
+                #print(f"best coordiantes from previous: {scalledDownCoordiates}")
                 smallestImage=(imagePyramid.pop())[0]
                 scalledDownCoordiates=self.checkReducedAreaIndividualImage(smallestImage,(numberOfImagesInPyramid-1-count),iconPyramid,top=topStart,left=leftStart,borderweidth=4,indextoCheck=indexBestMatchWasFoundAt)
                 count+=1
-                print(f"best new coordiantes: {scalledDownCoordiates}")
+                #print(f"best new coordiantes: {scalledDownCoordiates}")
             else:
                 print(f"something went wrong and no better MSE was founnd")
         return scalledDownCoordiates#these should now be scaled up to the correct size 
                 
 
-    
+    def checkAllIconsAgainstImage(self,iconsList,image):
+        iconsList=self.iconsToConsider
+        #image=self.image
+        best_fit_for_each_image=[]
+        
+        for iconIndex in range(len(iconsList)):
+            pyrami_generator_image = libarygaussianPyramid(image , levels=(self.levelsToIMAGEpyramid))
+            imagePyramid=pyrami_generator_image.get_pyramid()
+            print(f"currently working on Icon {iconIndex}  ")#the current best fit for each it: {best_fit_for_each_image}")
+            pyrami_generator_icon = libarygaussianPyramid(iconsList[iconIndex] , levels=(self.levelsToIMAGEpyramid+self.IconLevelsBelowImageSizeToCheck))
+            iconPyramid=pyrami_generator_icon.get_pyramid()
+            #print(f"favraibles before going in {len(imagePyramid),len(imagePyramid[0]),imagePyramid[0][0].shape} : {len(iconPyramid),len(iconPyramid[0]),iconPyramid[0][0].shape}")
+            result=self.checkIndividualIconPyramid(imagePyramid,iconPyramid)
+            best_fit_for_each_image.append([iconIndex]+result)
+        #we now have the best position for each icon but only some of them will have a good enough value to be found in the image
+        best_fit_for_each_image.sort(key=lambda x: x[1])# sort the array by mse
+        return best_fit_for_each_image[:5]
 
 
 
@@ -300,5 +314,15 @@ def test_checkIndividualIconPyramid_function():
     plt.show()
     '''
 
+
+def test_checkAllIconsAgainstImage_function():
+    #testIcon = iconsarray[0]
+    testImage = testImagesarray[18]
+    testMatchClass=matchIconToImage(iconsarray,testImage)
+    result=testMatchClass.checkAllIconsAgainstImage(iconsarray,testImage)#01-lighthouse,257,4,385,132 -> 128.5,2,192.5,66
+    print(result)
+    ###################################output given [337.708740234375, 2, 128, 66, 192]  &&&&&&  [306.3955078125, 1, 64, 33, 96]
     
-test_checkIndividualIconPyramid_function()
+
+
+test_checkAllIconsAgainstImage_function()
