@@ -38,7 +38,7 @@ class libarygaussianPyramid:
         self.sigmaScale=0.5
         self.pyramid = [[image]] #as i prefer appending my pyramid is going to be upside down if it gets printed but it works the exact same
         self.kernal_size = (5, 5)
-        self.downsample_scale = 0.5
+        self.downsample_scale = 0.75
         #self.build_pyramid()
         
         #self.get_pyramid()
@@ -79,7 +79,7 @@ class libarygaussianPyramid:
         '''
         for i in range(1, self.levels):
             ''' now add the next level which is 75% of i-1'''
-            imageX=self.pyramid[i - 1][0]
+            imageX=self.pyramid[2*(i - 1)][0]
             image75Percent=cv2.GaussianBlur(imageX, self.kernal_size,sigmaX=1, sigmaY=1)
             heightOfPrevious, widthOfPrevious = imageX.shape[:2]
             new_w = int(widthOfPrevious * self.downsample_scale)
@@ -148,7 +148,7 @@ class libarygaussianPyramid:
 
 
 class matchIconToImage:
-    def __init__(self, iconsToConsider, image, levelsToIMAGEpyramid=3, IconLevelsBelowImageSizeToCheck=7):
+    def __init__(self, iconsToConsider, image, levelsToIMAGEpyramid=3, IconLevelsBelowImageSizeToCheck=7,maxError=1000):
         self.iconsToConsider=iconsToConsider
         self.image = image
         self.matches = []
@@ -159,15 +159,17 @@ class matchIconToImage:
         #self.imagePyramids=(pyrami_generator.get_pyramid())
         ########################################################################
         self.iconsPyramids=[]
+        self.maxError=maxError
         for icon in iconsToConsider:
             pyrami_generator = libarygaussianPyramid(icon, levels=(levelsToIMAGEpyramid+IconLevelsBelowImageSizeToCheck))
             pyrami_generator.build_pyramid_icon()
             self.iconsPyramids.append(pyrami_generator.get_pyramid())
 
     def checkIndividualImageFirst(self,imageToCheck,index_of_image_pyramid,iconPyramid):
-        icons_to_check=iconPyramid[(index_of_image_pyramid):(index_of_image_pyramid + self.IconLevelsBelowImageSizeToCheck)]
+        icons_to_check=iconPyramid[(index_of_image_pyramid*2):((index_of_image_pyramid*2) + self.IconLevelsBelowImageSizeToCheck)]
         #BestMatchSoFar: [error,top,left,bottom,right]
         BestMatchSoFar = [99999,0 , 0   ,1     , 1   ,0] #just place holders
+        #print(f"stop0a {icons_to_check,(index_of_image_pyramid),(index_of_image_pyramid + self.IconLevelsBelowImageSizeToCheck),len(iconPyramid)} ")
         #print(f"stop0 {len(icons_to_check)} : {len(icons_to_check[0])} : {icons_to_check[0][0].shape}")
         for iconSizeIndex in range(0,len(icons_to_check)):
             iconHeight=icons_to_check[iconSizeIndex][0].shape[1]
@@ -195,11 +197,11 @@ class matchIconToImage:
                             
     def checkReducedAreaIndividualImage(self,imageToCheck,index_of_image_pyramid,iconPyramid,top,left,borderweidth=4,indextoCheck=0):
         '''this code is almost the exact same as the previous one but this time we know roughly where the image is so only need to check in that location +_ the border width'''
-        
-        icons_to_check=iconPyramid[(index_of_image_pyramid):(index_of_image_pyramid + self.IconLevelsBelowImageSizeToCheck)]
+        #print(f"xxx ____reduced area____ {(index_of_image_pyramid*2),((index_of_image_pyramid*2) + self.IconLevelsBelowImageSizeToCheck)}")
+        icons_to_check=iconPyramid[(index_of_image_pyramid*2):((index_of_image_pyramid*2) + self.IconLevelsBelowImageSizeToCheck)]
         #BestMatchSoFar: [error,top,left,bottom,right]
         BestMatchSoFar = [99999,0 , 0   ,1     , 1   ] #just place holders
-        #print(f"stop0 ____reduced area____ {len(icons_to_check)} : {len(icons_to_check[0])} : {icons_to_check[0][0].shape}")
+        #print(f"stop0 ____reduced area____ {len(icons_to_check)} : {len(icons_to_check[0])} : {icons_to_check[0][0].shape} {indextoCheck}")
         iconSizeIndex=indextoCheck
         iconHeight=icons_to_check[iconSizeIndex][0].shape[1]
         iconWidth=icons_to_check[iconSizeIndex][0].shape[0]
@@ -241,22 +243,23 @@ class matchIconToImage:
         
         #print(f"image current shape{smallestImage}")
         scalledDownCoordiates=self.checkIndividualImageFirst(smallestImage,(numberOfImagesInPyramid-1),iconPyramid)
-        
+        #print(f"stopZ {scalledDownCoordiates}")
         count=1
         while (len(imagePyramid)>=1):
             if(scalledDownCoordiates[0]!=99999):
+                #print(f"stopB {scalledDownCoordiates}")
                 topStart=scalledDownCoordiates[1]*2
                 leftStart=scalledDownCoordiates[2]*2
                 indexBestMatchWasFoundAt=scalledDownCoordiates[5] #this is proportional to the image size
                 #print(f"best coordiantes from previous: {scalledDownCoordiates}")
                 smallestImage=(imagePyramid.pop())[0]
                 #by changing the way the two gaussian pyramids work I have to convert the index of the image pyramid into the corresponding index for the image icon
-                correspondingIndex=((numberOfImagesInPyramid-1-count)*2)-1  # the index of icon with the same size as index n can be represented as 2n-1
+                correspondingIndex=(numberOfImagesInPyramid-1-count) # the index of icon with the same size as index n can be represented as 2n-1
                 scalledDownCoordiates=self.checkReducedAreaIndividualImage(smallestImage,(correspondingIndex),iconPyramid,top=topStart,left=leftStart,borderweidth=4,indextoCheck=indexBestMatchWasFoundAt)
                 count+=1
                 #print(f"best new coordiantes: {scalledDownCoordiates}")
-            else:
-                print(f"something went wrong and no better MSE was founnd")
+            #else:
+                #print(f"something went wrong and no better MSE was founnd")
         return scalledDownCoordiates#these should now be scaled up to the correct size 
                 
 
@@ -277,8 +280,10 @@ class matchIconToImage:
             result=self.checkIndividualIconPyramid(imagePyramid,iconPyramid)
             best_fit_for_each_image.append([iconIndex]+result)
         #we now have the best position for each icon but only some of them will have a good enough value to be found in the image
-        best_fit_for_each_image.sort(key=lambda x: x[1])# sort the array by mse
-        return best_fit_for_each_image[:5]
+        for i in range(len(best_fit_for_each_image)):
+            if (best_fit_for_each_image[i][1]<=self.maxError):
+                self.matches.append(best_fit_for_each_image[i])
+        return self.matches
 
 
 
@@ -286,15 +291,23 @@ class matchIconToImage:
 def testEnviormentA():
     testIcon = iconsarray[0]
     gp = libarygaussianPyramid(testIcon, levels=5)
+    gp.build_pyramid_icon()
     gp.show_pyramid_test()
     plt.tight_layout()
     plt.show()
-    i=input("press enter to continue to next test") 
-    testIcon = testImagesarray[18]
-    gp = libarygaussianPyramid(testIcon, levels=6)
+    pyr=gp.get_pyramid()
+    for i in range(len(pyr)):
+        print(f"level {i} shape {pyr[i][0].shape}")
+    #i=input("press enter to continue to next test") 
+    testImg = testImagesarray[18]
+    gp = libarygaussianPyramid(testImg, levels=6)
+    gp.build_pyramid_image()
     gp.show_pyramid_test()
     plt.tight_layout()
     plt.show()
+    pyr=gp.get_pyramid()
+    for i in range(len(pyr)):
+        print(f"level {i} shape {pyr[i][0].shape}")
 
 def test_checkIndividualImage_function():
     testIcon = iconsarray[0]
@@ -302,8 +315,9 @@ def test_checkIndividualImage_function():
     testImage= cv2.pyrDown(testImage)
     testImage= cv2.pyrDown(testImage)
     pyrami_generator = libarygaussianPyramid(testIcon, levels=(6))
+    pyrami_generator.build_pyramid_icon()
     testiconPyramid=pyrami_generator.get_pyramid()
-    print(f"testIcon pyramid: {len(testiconPyramid)}")
+    #print(f"testIcon pyramid: {len(testiconPyramid)}")
     ###########################################################################
     #gp = libarygaussianPyramid(testImage, levels=1)
     #gp.show_pyramid_test()
@@ -336,7 +350,7 @@ def test_checkIndividualIconPyramid_function():
     pyrami_generator = libarygaussianPyramid(testImage , levels=(3))
     pyrami_generator.build_pyramid_image()
     testImagePyramid=pyrami_generator.get_pyramid()
-    pyrami_generator = libarygaussianPyramid(testIcon, levels=(3))
+    pyrami_generator = libarygaussianPyramid(testIcon, levels=(7))
     pyrami_generator.build_pyramid_icon()
     testiconPyramid=pyrami_generator.get_pyramid()
     print(f"testIcon pyramid: {len(testiconPyramid)}")
@@ -376,4 +390,4 @@ def test_checkAllIconsAgainstImage_function():
     
 
 
-test_checkIndividualIconPyramid_function()
+test_checkAllIconsAgainstImage_function()
