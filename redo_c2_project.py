@@ -15,6 +15,7 @@ print(f"icons array has {len(iconsarray)} images of size {iconsarray[0].shape}")
 
 testImagesarray=[]
 testImagesLocation = Path("data_provided_for_task/images")
+
 for p in testImagesLocation.rglob("*.png"):
     img = cv2.imread(str(p), cv2.IMREAD_UNCHANGED)  # BGRA if has alpha
     testImagesarray.append(img)
@@ -229,9 +230,6 @@ class matchIconToImage:
                             BestMatchSoFar=[mseValue, (y+top-borderweidth), (x+left-borderweidth), (y+top-borderweidth+iconHeight), (x+iconWidth+left-borderweidth),iconSizeIndex]
         return BestMatchSoFar
                           
-                    
-
-        
 
     def checkIndividualIconPyramid(self,imagePyramid,iconPyramid):
         #in this section we will check one icon(pyramid) on our image(pyramid)
@@ -286,7 +284,30 @@ class matchIconToImage:
         return self.matches
 
 
+class matchAllImagesAndIcons:
+    def __init__(self,imagesArray,iconArray,boundaryError=1000):
+        self.imagesArray=imagesArray
+        self.iconArray=iconArray
+        self.boundaryError=boundaryError
 
+    
+    def getIconsToImage(self,image):
+        testMatchClass=matchIconToImage(self.iconArray,image,maxError=self.boundaryError)
+        result=testMatchClass.checkAllIconsAgainstImage(self.iconArray,image)
+        compactedResults=[]
+        for index in range(len(result)):
+            compactedResults.append([(result[index][0]+1),(result[index][2]),(result[index][3]),(result[index][4]),(result[index][5])])
+
+    def getCompleteListForEachImage(self):
+        result_per_image=[]
+        for index in range(len(self.imagesArray)):
+            result_per_image.append(self.getIconsToImage(self.imagesArray[index]))
+        return result_per_image
+
+
+    
+        
+        
 
 def testEnviormentA():
     testIcon = iconsarray[0]
@@ -389,5 +410,5 @@ def test_checkAllIconsAgainstImage_function():
     ###################################output given [337.708740234375, 2, 128, 66, 192]  &&&&&&  [306.3955078125, 1, 64, 33, 96]
     
 
-
-test_checkAllIconsAgainstImage_function()
+#[[0, 293.22509765625, 4, 257, 132, 385, 4], [4, 110.629638671875, 109, 12, 301, 204, 3], [8, 588.486328125, 392, 228, 456, 292, 6], [44, 69.986328125, 149, 260, 341, 452, 3]]
+#test_checkAllIconsAgainstImage_function()
