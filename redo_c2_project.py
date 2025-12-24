@@ -5,6 +5,8 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 
+
+
 iconsarray=[]
 iconsLocation = Path("data_provided_for_task/IconDataset/png")
 for p in iconsLocation.rglob("*.png"):
@@ -20,7 +22,41 @@ for p in testImagesLocation.rglob("*.png"):
     img = cv2.imread(str(p), cv2.IMREAD_UNCHANGED)  # BGRA if has alpha
     testImagesarray.append(img)
 
+from pathlib import Path
+import csv
 print(f"test images array has {len(testImagesarray)} images of size {testImagesarray[0].shape}") 
+
+expected_array = []
+
+csvLocation = Path("data_provided_for_task/annotations")
+
+# sort to prevent issues that i noticced with the second half swapping with the first with images
+csv_files = sorted(csvLocation.rglob("*.csv"))
+
+for index in range(len(csv_files)):
+    # extract image number, splits on file name "_" and then get second half
+    image_number = int(csv_files[index].stem.split("_")[-1])
+
+    image_annotations = [image_number]
+
+    with open(csv_files[index], newline="") as f:
+        reader = csv.DictReader(f)
+
+        for row in reader:
+            #cant use index(my preffered way of doing things) as reader doesnt have a length and it throws errors
+            class_id = int(row["classname"].split("-")[0])
+            top=int(row["top"])
+            left=int(row["left"])
+            bottom=int(row["bottom"])
+            right=int(row["right"])
+            image_annotations.append([class_id,top,left,bottom,right])
+            
+
+    expected_array.append(image_annotations)
+print(f"Loaded annotations for {len(expected_array)} images  example(8):{expected_array[18]}")
+
+
+
 
 '''
 through inspection i believe the smallest size any of the icons is (proportional to the search imaage) is 0.125 or 12.5% (64/512)
@@ -285,24 +321,79 @@ class matchIconToImage:
 
 
 class matchAllImagesAndIcons:
-    def __init__(self,imagesArray,iconArray,boundaryError=1000):
+    def __init__(self,iconArray,imagesArray,answersArray,boundaryError=1000):
         self.imagesArray=imagesArray
         self.iconArray=iconArray
+        self.answersArray=answersArray
         self.boundaryError=boundaryError
 
     
-    def getIconsToImage(self,image):
+    def getIconsToImage(self,image,imagenumber):
         testMatchClass=matchIconToImage(self.iconArray,image,maxError=self.boundaryError)
         result=testMatchClass.checkAllIconsAgainstImage(self.iconArray,image)
-        compactedResults=[]
+        compactedResults=[imagenumber]
         for index in range(len(result)):
-            compactedResults.append([(result[index][0]+1),(result[index][2]),(result[index][3]),(result[index][4]),(result[index][5])])
+            #compactedResults.append([(result[index][0]+1),(result[index][2]),(result[index][3]),(result[index][4]),(result[index][5])]) #what i think makes sense
+            '''above is how i would write the top, left, bottom,and right but the examples given do it differently so im converting to there way bellov'''
+            compactedResults.append([(result[index][0]+1),(result[index][3]),(result[index][2]),(result[index][5]),(result[index][4])]) #what they want
+        return compactedResults
 
     def getCompleteListForEachImage(self):
         result_per_image=[]
         for index in range(len(self.imagesArray)):
             result_per_image.append(self.getIconsToImage(self.imagesArray[index]))
         return result_per_image
+    
+    def calculateIOU(self,coordinatesA,coordinatesB):
+        #first calculate the min bounding box of both the icons 
+        boundingTop = max(coordinatesA[0], coordinatesB[0])
+        boundingLeft = max(coordinatesA[1], coordinatesB[1])
+        boundingBottom = min(coordinatesA[2], coordinatesB[2])
+        boundingRight = min(coordinatesA[3], coordinatesB[3])
+
+        if ((boundingTop>=boundingBottom)or(boundingLeft>=boundingRight)):
+            return 0.0#makes everything a float
+        else:
+            boundingArea=(boundingBottom-boundingTop)*(boundingRight*boundingLeft)
+            areaA=(coordinatesA[2]-coordinatesA[0])*(coordinatesA[3]*coordinatesA[1])
+            areaB=(coordinatesB[2]-coordinatesB[0])*(coordinatesB[3]*coordinatesB[1])
+            return(boundingArea/(areaA+areaB-boundingArea))
+        
+    def compareResultOfImageToExpected(self,compactedResult):
+        comparisonImageId=compactedResult[0]
+        expectedResult=[]
+        for index in range(len(self.answersArray)):
+            if (self.answersArray[index][0]==comparisonImageId):
+                expectedResult=self.answersArray[index]
+        if(expectedResult==[]):
+            print(f"error expected result not recognised when searching for with ID {comparisonImageId}")
+        else:
+
+            #now we are certain that the expected result and these results are talking about the same image so by removing the identifier I can make each element consistent for easier searching
+            expectedFoundImages=expectedResult[1:]
+            actualFoundimages=compactedResult[1:]
+            #IconID, IOU, expected coordinates, found coordinates
+            matchedIcons=[]
+            missedIconsInImage=[]
+            #missIdentified=[]
+
+            for indexExpected in range(len(expectedFoundImages)):
+                searchIconID=expectedFoundImages[indexExpected][0]
+                missed=True
+                for indexActual in range(len(actualFoundimages)):
+                    if (searchIconID==actualFoundimages[indexActual][0]):
+                        #in this case correctly identified now we just need to work out IOU
+
+                        coordinatesExpected=expectedFoundImages[indexExpected][1:]
+                        coordinatesFound=actualFoundimages[indexActual][1:]
+                        solvedIOU=self.calculateIOU(coordinatesExpected,coordinatesFound)
+                        matchedIcons.append([searchIconID,solvedIOU,coordinatesExpected,coordinatesFound])
+                        missed=False
+                if missed:
+                    missedIconsInImage.append(expectedFoundImages[indexExpected])
+            return matchedIcons,missedIconsInImage
+
+
 
 
     
@@ -412,3 +503,21 @@ def test_checkAllIconsAgainstImage_function():
 
 #[[0, 293.22509765625, 4, 257, 132, 385, 4], [4, 110.629638671875, 109, 12, 301, 204, 3], [8, 588.486328125, 392, 228, 456, 292, 6], [44, 69.986328125, 149, 260, 341, 452, 3]]
 #test_checkAllIconsAgainstImage_function()
+
+def test_getIconsToImage_function():
+    testClass=matchAllImagesAndIcons(iconsarray,testImagesarray,answersArray=expected_array)
+    testImage = testImagesarray[18]
+    results=testClass.getIconsToImage(testImage,imagenumber=18)
+    print(results)#[18[1, 4, 257, 132, 385], [5, 109, 12, 301, 204], [9, 392, 228, 456, 292], [45, 149, 260, 341, 452]]
+    #[18, [1, 257, 4, 385, 132], [5, 12, 109, 204, 301], [9, 228, 392, 292, 456], [45, 260, 149, 452, 341]]
+
+def test_compareResultOfImageToExpected():
+    testClass=matchAllImagesAndIcons(iconsarray,testImagesarray,answersArray=expected_array)
+    testImage = testImagesarray[18]
+    testImageResultExample=[8, [1, 257, 4, 385, 132], [5, 12, 109, 204, 301], [9, 228, 392, 292, 456], [45, 260, 149, 452, 341]]#just done to spped up testing!
+    matchedIcons,missedIconsInImage=testClass.compareResultOfImageToExpected(testImageResultExample)
+    print(f"matchedIcons: {matchedIcons} \n \nmissedIconsInImage: {missedIconsInImage}")
+    
+
+
+test_compareResultOfImageToExpected()
