@@ -18,9 +18,13 @@ print(f"icons array has {len(iconsarray)} images of size {iconsarray[0].shape}")
 testImagesarray=[]
 testImagesLocation = Path("data_provided_for_task/images")
 
-for p in testImagesLocation.rglob("*.png"):
-    img = cv2.imread(str(p), cv2.IMREAD_UNCHANGED)  # BGRA if has alpha
+
+image_files = sorted(testImagesLocation.rglob("*.png"),key=lambda p: int(p.stem.split("_")[-1]))
+
+for p in image_files:
+    img = cv2.imread(str(p), cv2.IMREAD_UNCHANGED)
     testImagesarray.append(img)
+
 
 from pathlib import Path
 import csv
@@ -411,7 +415,7 @@ def testEnviormentA():
     for i in range(len(pyr)):
         print(f"level {i} shape {pyr[i][0].shape}")
     #i=input("press enter to continue to next test") 
-    testImg = testImagesarray[18]
+    testImg = testImagesarray[7]
     gp = libarygaussianPyramid(testImg, levels=6)
     gp.build_pyramid_image()
     gp.show_pyramid_test()
@@ -423,7 +427,7 @@ def testEnviormentA():
 
 def test_checkIndividualImage_function():
     testIcon = iconsarray[0]
-    testImage = testImagesarray[18]
+    testImage = testImagesarray[7]
     testImage= cv2.pyrDown(testImage)
     testImage= cv2.pyrDown(testImage)
     pyrami_generator = libarygaussianPyramid(testIcon, levels=(6))
@@ -458,7 +462,7 @@ def test_checkIndividualImage_function():
 
 def test_checkIndividualIconPyramid_function():
     testIcon = iconsarray[0]
-    testImage = testImagesarray[18]
+    testImage = testImagesarray[7]
     pyrami_generator = libarygaussianPyramid(testImage , levels=(3))
     pyrami_generator.build_pyramid_image()
     testImagePyramid=pyrami_generator.get_pyramid()
@@ -494,7 +498,7 @@ def test_checkIndividualIconPyramid_function():
 
 def test_checkAllIconsAgainstImage_function():
     #testIcon = iconsarray[0]
-    testImage = testImagesarray[18]
+    testImage = testImagesarray[7]
     testMatchClass=matchIconToImage(iconsarray,testImage)
     result=testMatchClass.checkAllIconsAgainstImage(iconsarray,testImage)#01-lighthouse,257,4,385,132 -> 128.5,2,192.5,66
     print(result)
@@ -506,18 +510,18 @@ def test_checkAllIconsAgainstImage_function():
 
 def test_getIconsToImage_function():
     testClass=matchAllImagesAndIcons(iconsarray,testImagesarray,answersArray=expected_array)
-    testImage = testImagesarray[18]
+    testImage = testImagesarray[7]
     results=testClass.getIconsToImage(testImage,imagenumber=18)
     print(results)#[18[1, 4, 257, 132, 385], [5, 109, 12, 301, 204], [9, 392, 228, 456, 292], [45, 149, 260, 341, 452]]
     #[18, [1, 257, 4, 385, 132], [5, 12, 109, 204, 301], [9, 228, 392, 292, 456], [45, 260, 149, 452, 341]]
 
 def test_compareResultOfImageToExpected():
     testClass=matchAllImagesAndIcons(iconsarray,testImagesarray,answersArray=expected_array)
-    testImage = testImagesarray[18]
+    testImage = testImagesarray[7]
     testImageResultExample=[8, [1, 257, 4, 385, 132], [5, 12, 109, 204, 301], [9, 228, 392, 292, 456], [45, 260, 149, 452, 341]]#just done to spped up testing!
     matchedIcons,missedIconsInImage=testClass.compareResultOfImageToExpected(testImageResultExample)
     print(f"matchedIcons: {matchedIcons} \n \nmissedIconsInImage: {missedIconsInImage}")
     
 
 
-test_compareResultOfImageToExpected()
+testEnviormentA()
