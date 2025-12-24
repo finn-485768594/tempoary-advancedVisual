@@ -396,7 +396,41 @@ class matchAllImagesAndIcons:
                 if missed:
                     missedIconsInImage.append(expectedFoundImages[indexExpected])
             return matchedIcons,missedIconsInImage
+        
 
+class matchVisualiser:
+    def __init__(self):
+        pass
+
+    def showMatchedIconsOnImage(self, image, compactedResults):
+        imageToShow = image.copy()
+
+        for index in range(len(compactedResults)):
+            if index != 0:  # skip image identifier row
+                left   = compactedResults[index][1]
+                top    = compactedResults[index][2]
+                right  = compactedResults[index][3]
+                bottom = compactedResults[index][4]
+
+                class_id = compactedResults[index][0]  # or classname string
+
+                # draw bounding box
+                cv2.rectangle(imageToShow,(left, top),(right, bottom),(0, 255, 0),2)
+
+                # text label
+                label = f"ID {class_id}"
+
+
+                # draw text
+                cv2.putText(imageToShow,label,(left + 2, top + 12),cv2.FONT_HERSHEY_SIMPLEX,0.5,(0, 0, 0),1,cv2.LINE_AA)
+
+        imageToShow = cv2.cvtColor(imageToShow, cv2.COLOR_BGRA2RGBA)
+        plt.figure(figsize=(8, 8))
+        plt.imshow(imageToShow)
+        plt.axis("off")
+        plt.title("Matched Icons on Image")
+        plt.show()
+        
 
 
 
@@ -510,8 +544,9 @@ def test_checkAllIconsAgainstImage_function():
 
 def test_getIconsToImage_function():
     testClass=matchAllImagesAndIcons(iconsarray,testImagesarray,answersArray=expected_array)
-    testImage = testImagesarray[7]
-    results=testClass.getIconsToImage(testImage,imagenumber=18)
+    imageIndex=0
+    testImage = testImagesarray[imageIndex]
+    results=testClass.getIconsToImage(testImage,imagenumber=(imageIndex+1))
     print(results)#[18[1, 4, 257, 132, 385], [5, 109, 12, 301, 204], [9, 392, 228, 456, 292], [45, 149, 260, 341, 452]]
     #[18, [1, 257, 4, 385, 132], [5, 12, 109, 204, 301], [9, 228, 392, 292, 456], [45, 260, 149, 452, 341]]
 
@@ -522,6 +557,10 @@ def test_compareResultOfImageToExpected():
     matchedIcons,missedIconsInImage=testClass.compareResultOfImageToExpected(testImageResultExample)
     print(f"matchedIcons: {matchedIcons} \n \nmissedIconsInImage: {missedIconsInImage}")
     
+def test_showMatchedIconsOnImage_function():
+    testVisualiser=matchVisualiser()
+    testImage = testImagesarray[0]
+    testImageResultExample=[1, [6, 104, 32, 168, 96], [35, 413, 27, 477, 91], [37, 175, 100, 431, 356], [45, 55, 241, 119, 305], [50, 12, 331, 140, 459]]#just done to spped up testing!
+    testVisualiser.showMatchedIconsOnImage(testImage,testImageResultExample)
 
-
-testEnviormentA()
+test_showMatchedIconsOnImage_function()
