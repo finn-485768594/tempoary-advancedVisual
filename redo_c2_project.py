@@ -1,5 +1,6 @@
 # first things first lets get the data we ned for the tasl
 import cv2
+import csv
 from pathlib import Path
 
 import numpy as np
@@ -26,8 +27,8 @@ for p in image_files:
     testImagesarray.append(img)
 
 
-from pathlib import Path
-import csv
+
+
 print(f"test images array has {len(testImagesarray)} images of size {testImagesarray[0].shape}") 
 
 expected_array = []
@@ -125,6 +126,7 @@ class libarygaussianPyramid:
             heightOfPrevious, widthOfPrevious = imageX.shape[:2]
             new_w = int(widthOfPrevious * self.downsample_scale)
             new_h = int(heightOfPrevious * self.downsample_scale)
+            #print(f"Resizing from ({widthOfPrevious}, {heightOfPrevious}) to ({new_w}, {new_h})")
             image75Percent = cv2.resize(image75Percent,(new_w, new_h),interpolation=cv2.INTER_AREA)
             this_level = [image75Percent]
             self.pyramid.append(this_level)
@@ -189,7 +191,7 @@ class libarygaussianPyramid:
 
 
 class matchIconToImage:
-    def __init__(self, iconsToConsider, image, levelsToIMAGEpyramid=3, IconLevelsBelowImageSizeToCheck=7,maxError=1000):
+    def __init__(self, iconsToConsider, image, levelsToIMAGEpyramid=5, IconLevelsBelowImageSizeToCheck=8,maxError=2000):
         self.iconsToConsider=iconsToConsider
         self.image = image
         self.matches = []
@@ -202,7 +204,7 @@ class matchIconToImage:
         self.iconsPyramids=[]
         self.maxError=maxError
         for icon in iconsToConsider:
-            pyrami_generator = libarygaussianPyramid(icon, levels=(levelsToIMAGEpyramid+IconLevelsBelowImageSizeToCheck))
+            pyrami_generator = libarygaussianPyramid(icon, levels=(IconLevelsBelowImageSizeToCheck))
             pyrami_generator.build_pyramid_icon()
             self.iconsPyramids.append(pyrami_generator.get_pyramid())
 
@@ -311,7 +313,7 @@ class matchIconToImage:
             pyrami_generator_image.build_pyramid_image()
             imagePyramid=pyrami_generator_image.get_pyramid()
             print(f"currently working on Icon {iconIndex}  ")#the current best fit for each it: {best_fit_for_each_image}")
-            pyrami_generator_icon = libarygaussianPyramid(iconsList[iconIndex] , levels=(self.levelsToIMAGEpyramid+self.IconLevelsBelowImageSizeToCheck))
+            pyrami_generator_icon = libarygaussianPyramid(iconsList[iconIndex] , levels=(self.IconLevelsBelowImageSizeToCheck))#self.levelsToIMAGEpyramid+self.IconLevelsBelowImageSizeToCheck))
             pyrami_generator_icon.build_pyramid_icon()
             iconPyramid=pyrami_generator_icon.get_pyramid()
             #print(f"favraibles before going in {len(imagePyramid),len(imagePyramid[0]),imagePyramid[0][0].shape} : {len(iconPyramid),len(iconPyramid[0]),iconPyramid[0][0].shape}")
@@ -465,22 +467,20 @@ def test_checkIndividualImage_function():
     testImage = testImagesarray[7]
     testImage= cv2.pyrDown(testImage)
     testImage= cv2.pyrDown(testImage)
-    pyrami_generator = libarygaussianPyramid(testIcon, levels=(6))
+    testImage= cv2.pyrDown(testImage)
+    testImage= cv2.pyrDown(testImage)
+    #testImage= cv2.pyrDown(testImage)
+    #5 8 seems to be the best soloution 69 i spossible but we start loosing stuff
+    pyrami_generator = libarygaussianPyramid(testIcon, levels=(8))
     pyrami_generator.build_pyramid_icon()
     testiconPyramid=pyrami_generator.get_pyramid()
-    #print(f"testIcon pyramid: {len(testiconPyramid)}")
-    ###########################################################################
-    #gp = libarygaussianPyramid(testImage, levels=1)
-    #gp.show_pyramid_test()
-    #plt.tight_layout()
-    #plt.show()
-    #i=input("press enter to continue to next test") 
-    #pyrami_generator.show_pyramid_test()
-    #plt.tight_layout()
-    #plt.show()
+    for i in range(len(testiconPyramid)):
+        print(f"level {i} shape {testiconPyramid[i][0].shape}")
+    print(f"testIcon pyramid: {len(testiconPyramid)}")
+    
     #############################################################################
     testMatchClass=matchIconToImage(iconsarray,testiconPyramid)
-    result=testMatchClass.checkIndividualImageFirst(testImage,2,testiconPyramid)#01-lighthouse,257,4,385,132 -> 128.5,2,192.5,66
+    result=testMatchClass.checkIndividualImageFirst(testImage,3,testiconPyramid)#01-lighthouse,257,4,385,132 -> 128.5,2,192.5,66
     print(result)
     ###################################output given [337.708740234375, 2, 128, 66, 192]  &&&&&&  [306.3955078125, 1, 64, 33, 96]
     '''
@@ -496,24 +496,17 @@ def test_checkIndividualImage_function():
     
 
 def test_checkIndividualIconPyramid_function():
+    #test_checkIndividualImage_function()
     testIcon = iconsarray[0]
     testImage = testImagesarray[7]
-    pyrami_generator = libarygaussianPyramid(testImage , levels=(3))
+    pyrami_generator = libarygaussianPyramid(testImage , levels=(6))
     pyrami_generator.build_pyramid_image()
     testImagePyramid=pyrami_generator.get_pyramid()
-    pyrami_generator = libarygaussianPyramid(testIcon, levels=(7))
-    pyrami_generator.build_pyramid_icon()
-    testiconPyramid=pyrami_generator.get_pyramid()
+    pyrami_generatorIcon = libarygaussianPyramid(testIcon, levels=(9))
+    pyrami_generatorIcon.build_pyramid_icon()
+    testiconPyramid=pyrami_generatorIcon.get_pyramid()
     print(f"testIcon pyramid: {len(testiconPyramid)}")
-    ###########################################################################
-    #gp = libarygaussianPyramid(testImage, levels=1)
-    #gp.show_pyramid_test()
-    #plt.tight_layout()
-    #plt.show()
-    #i=input("press enter to continue to next test") 
-    #pyrami_generator.show_pyramid_test()
-    #plt.tight_layout()
-    #plt.show()
+
     #############################################################################
     testMatchClass=matchIconToImage(iconsarray,testiconPyramid)
     result=testMatchClass.checkIndividualIconPyramid(testImagePyramid,testiconPyramid)#01-lighthouse,257,4,385,132 -> 128.5,2,192.5,66
@@ -533,7 +526,8 @@ def test_checkIndividualIconPyramid_function():
 
 def test_checkAllIconsAgainstImage_function():
     #testIcon = iconsarray[0]
-    testImage = testImagesarray[7]
+    imageIndex=18
+    testImage = testImagesarray[imageIndex]
     testMatchClass=matchIconToImage(iconsarray,testImage)
     result=testMatchClass.checkAllIconsAgainstImage(iconsarray,testImage)#01-lighthouse,257,4,385,132 -> 128.5,2,192.5,66
     print(result)
@@ -573,7 +567,7 @@ def run_all_images_tests():
         matchedIcons,missedIconsInImage=testClass.compareResultOfImageToExpected(completeResults[index])
         print(f"Image {index+1} \n matchedIcons: {matchedIcons} \n \nmissedIconsInImage: {missedIconsInImage}\n \n rawouput: {completeResults[index]}\n\n///////////////////////////////////////")
     
-run_all_images_tests()
+test_checkAllIconsAgainstImage_function()
 
 
 
