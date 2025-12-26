@@ -1,5 +1,6 @@
 # first things first lets get the data we ned for the tasl
 import cv2
+import csv
 from pathlib import Path
 
 import numpy as np
@@ -18,12 +19,16 @@ print(f"icons array has {len(iconsarray)} images of size {iconsarray[0].shape}")
 testImagesarray=[]
 testImagesLocation = Path("data_provided_for_task/images")
 
-for p in testImagesLocation.rglob("*.png"):
-    img = cv2.imread(str(p), cv2.IMREAD_UNCHANGED)  # BGRA if has alpha
+
+image_files = sorted(testImagesLocation.rglob("*.png"),key=lambda p: int(p.stem.split("_")[-1]))
+
+for p in image_files:
+    img = cv2.imread(str(p), cv2.IMREAD_UNCHANGED)
     testImagesarray.append(img)
 
-from pathlib import Path
-import csv
+
+
+
 print(f"test images array has {len(testImagesarray)} images of size {testImagesarray[0].shape}") 
 
 expected_array = []
@@ -121,6 +126,7 @@ class libarygaussianPyramid:
             heightOfPrevious, widthOfPrevious = imageX.shape[:2]
             new_w = int(widthOfPrevious * self.downsample_scale)
             new_h = int(heightOfPrevious * self.downsample_scale)
+            #print(f"Resizing from ({widthOfPrevious}, {heightOfPrevious}) to ({new_w}, {new_h})")
             image75Percent = cv2.resize(image75Percent,(new_w, new_h),interpolation=cv2.INTER_AREA)
             this_level = [image75Percent]
             self.pyramid.append(this_level)
@@ -185,7 +191,7 @@ class libarygaussianPyramid:
 
 
 class matchIconToImage:
-    def __init__(self, iconsToConsider, image, levelsToIMAGEpyramid=3, IconLevelsBelowImageSizeToCheck=7,maxError=1000):
+    def __init__(self, iconsToConsider, image, levelsToIMAGEpyramid=5, IconLevelsBelowImageSizeToCheck=8,maxError=2000):
         self.iconsToConsider=iconsToConsider
         self.image = image
         self.matches = []
@@ -198,7 +204,7 @@ class matchIconToImage:
         self.iconsPyramids=[]
         self.maxError=maxError
         for icon in iconsToConsider:
-            pyrami_generator = libarygaussianPyramid(icon, levels=(levelsToIMAGEpyramid+IconLevelsBelowImageSizeToCheck))
+            pyrami_generator = libarygaussianPyramid(icon, levels=(IconLevelsBelowImageSizeToCheck))
             pyrami_generator.build_pyramid_icon()
             self.iconsPyramids.append(pyrami_generator.get_pyramid())
 
@@ -307,7 +313,7 @@ class matchIconToImage:
             pyrami_generator_image.build_pyramid_image()
             imagePyramid=pyrami_generator_image.get_pyramid()
             print(f"currently working on Icon {iconIndex}  ")#the current best fit for each it: {best_fit_for_each_image}")
-            pyrami_generator_icon = libarygaussianPyramid(iconsList[iconIndex] , levels=(self.levelsToIMAGEpyramid+self.IconLevelsBelowImageSizeToCheck))
+            pyrami_generator_icon = libarygaussianPyramid(iconsList[iconIndex] , levels=(self.IconLevelsBelowImageSizeToCheck))#self.levelsToIMAGEpyramid+self.IconLevelsBelowImageSizeToCheck))
             pyrami_generator_icon.build_pyramid_icon()
             iconPyramid=pyrami_generator_icon.get_pyramid()
             #print(f"favraibles before going in {len(imagePyramid),len(imagePyramid[0]),imagePyramid[0][0].shape} : {len(iconPyramid),len(iconPyramid[0]),iconPyramid[0][0].shape}")
@@ -341,7 +347,8 @@ class matchAllImagesAndIcons:
     def getCompleteListForEachImage(self):
         result_per_image=[]
         for index in range(len(self.imagesArray)):
-            result_per_image.append(self.getIconsToImage(self.imagesArray[index]))
+            print(f"Processing image {index+1} of {len(self.imagesArray)}")
+            result_per_image.append(self.getIconsToImage(self.imagesArray[index],index+1))
         return result_per_image
     
     def calculateIOU(self,coordinatesA,coordinatesB):
@@ -392,7 +399,41 @@ class matchAllImagesAndIcons:
                 if missed:
                     missedIconsInImage.append(expectedFoundImages[indexExpected])
             return matchedIcons,missedIconsInImage
+        
 
+class matchVisualiser:
+    def __init__(self):
+        pass
+
+    def showMatchedIconsOnImage(self, image, compactedResults):
+        imageToShow = image.copy()
+
+        for index in range(len(compactedResults)):
+            if index != 0:  # skip image identifier row
+                left   = compactedResults[index][1]
+                top    = compactedResults[index][2]
+                right  = compactedResults[index][3]
+                bottom = compactedResults[index][4]
+
+                class_id = compactedResults[index][0]  # or classname string
+
+                # draw bounding box
+                cv2.rectangle(imageToShow,(left, top),(right, bottom),(0, 255, 0),2)
+
+                # text label
+                label = f"ID {class_id}"
+
+
+                # draw text
+                cv2.putText(imageToShow,label,(left + 2, top + 12),cv2.FONT_HERSHEY_SIMPLEX,0.5,(0, 0, 0),1,cv2.LINE_AA)
+
+        imageToShow = cv2.cvtColor(imageToShow, cv2.COLOR_BGRA2RGBA)
+        plt.figure(figsize=(8, 8))
+        plt.imshow(imageToShow)
+        plt.axis("off")
+        plt.title("Matched Icons on Image")
+        plt.show()
+        
 
 
 
@@ -411,7 +452,7 @@ def testEnviormentA():
     for i in range(len(pyr)):
         print(f"level {i} shape {pyr[i][0].shape}")
     #i=input("press enter to continue to next test") 
-    testImg = testImagesarray[18]
+    testImg = testImagesarray[7]
     gp = libarygaussianPyramid(testImg, levels=6)
     gp.build_pyramid_image()
     gp.show_pyramid_test()
@@ -423,25 +464,23 @@ def testEnviormentA():
 
 def test_checkIndividualImage_function():
     testIcon = iconsarray[0]
-    testImage = testImagesarray[18]
+    testImage = testImagesarray[7]
     testImage= cv2.pyrDown(testImage)
     testImage= cv2.pyrDown(testImage)
-    pyrami_generator = libarygaussianPyramid(testIcon, levels=(6))
+    testImage= cv2.pyrDown(testImage)
+    testImage= cv2.pyrDown(testImage)
+    #testImage= cv2.pyrDown(testImage)
+    #5 8 seems to be the best soloution 69 i spossible but we start loosing stuff
+    pyrami_generator = libarygaussianPyramid(testIcon, levels=(8))
     pyrami_generator.build_pyramid_icon()
     testiconPyramid=pyrami_generator.get_pyramid()
-    #print(f"testIcon pyramid: {len(testiconPyramid)}")
-    ###########################################################################
-    #gp = libarygaussianPyramid(testImage, levels=1)
-    #gp.show_pyramid_test()
-    #plt.tight_layout()
-    #plt.show()
-    #i=input("press enter to continue to next test") 
-    #pyrami_generator.show_pyramid_test()
-    #plt.tight_layout()
-    #plt.show()
+    for i in range(len(testiconPyramid)):
+        print(f"level {i} shape {testiconPyramid[i][0].shape}")
+    print(f"testIcon pyramid: {len(testiconPyramid)}")
+    
     #############################################################################
     testMatchClass=matchIconToImage(iconsarray,testiconPyramid)
-    result=testMatchClass.checkIndividualImageFirst(testImage,2,testiconPyramid)#01-lighthouse,257,4,385,132 -> 128.5,2,192.5,66
+    result=testMatchClass.checkIndividualImageFirst(testImage,3,testiconPyramid)#01-lighthouse,257,4,385,132 -> 128.5,2,192.5,66
     print(result)
     ###################################output given [337.708740234375, 2, 128, 66, 192]  &&&&&&  [306.3955078125, 1, 64, 33, 96]
     '''
@@ -457,24 +496,17 @@ def test_checkIndividualImage_function():
     
 
 def test_checkIndividualIconPyramid_function():
+    #test_checkIndividualImage_function()
     testIcon = iconsarray[0]
-    testImage = testImagesarray[18]
-    pyrami_generator = libarygaussianPyramid(testImage , levels=(3))
+    testImage = testImagesarray[7]
+    pyrami_generator = libarygaussianPyramid(testImage , levels=(6))
     pyrami_generator.build_pyramid_image()
     testImagePyramid=pyrami_generator.get_pyramid()
-    pyrami_generator = libarygaussianPyramid(testIcon, levels=(7))
-    pyrami_generator.build_pyramid_icon()
-    testiconPyramid=pyrami_generator.get_pyramid()
+    pyrami_generatorIcon = libarygaussianPyramid(testIcon, levels=(9))
+    pyrami_generatorIcon.build_pyramid_icon()
+    testiconPyramid=pyrami_generatorIcon.get_pyramid()
     print(f"testIcon pyramid: {len(testiconPyramid)}")
-    ###########################################################################
-    #gp = libarygaussianPyramid(testImage, levels=1)
-    #gp.show_pyramid_test()
-    #plt.tight_layout()
-    #plt.show()
-    #i=input("press enter to continue to next test") 
-    #pyrami_generator.show_pyramid_test()
-    #plt.tight_layout()
-    #plt.show()
+
     #############################################################################
     testMatchClass=matchIconToImage(iconsarray,testiconPyramid)
     result=testMatchClass.checkIndividualIconPyramid(testImagePyramid,testiconPyramid)#01-lighthouse,257,4,385,132 -> 128.5,2,192.5,66
@@ -494,7 +526,8 @@ def test_checkIndividualIconPyramid_function():
 
 def test_checkAllIconsAgainstImage_function():
     #testIcon = iconsarray[0]
-    testImage = testImagesarray[18]
+    imageIndex=18
+    testImage = testImagesarray[imageIndex]
     testMatchClass=matchIconToImage(iconsarray,testImage)
     result=testMatchClass.checkAllIconsAgainstImage(iconsarray,testImage)#01-lighthouse,257,4,385,132 -> 128.5,2,192.5,66
     print(result)
@@ -506,18 +539,223 @@ def test_checkAllIconsAgainstImage_function():
 
 def test_getIconsToImage_function():
     testClass=matchAllImagesAndIcons(iconsarray,testImagesarray,answersArray=expected_array)
-    testImage = testImagesarray[18]
-    results=testClass.getIconsToImage(testImage,imagenumber=18)
+    imageIndex=0
+    testImage = testImagesarray[imageIndex]
+    results=testClass.getIconsToImage(testImage,imagenumber=(imageIndex+1))
     print(results)#[18[1, 4, 257, 132, 385], [5, 109, 12, 301, 204], [9, 392, 228, 456, 292], [45, 149, 260, 341, 452]]
     #[18, [1, 257, 4, 385, 132], [5, 12, 109, 204, 301], [9, 228, 392, 292, 456], [45, 260, 149, 452, 341]]
 
 def test_compareResultOfImageToExpected():
     testClass=matchAllImagesAndIcons(iconsarray,testImagesarray,answersArray=expected_array)
-    testImage = testImagesarray[18]
+    testImage = testImagesarray[7]
     testImageResultExample=[8, [1, 257, 4, 385, 132], [5, 12, 109, 204, 301], [9, 228, 392, 292, 456], [45, 260, 149, 452, 341]]#just done to spped up testing!
     matchedIcons,missedIconsInImage=testClass.compareResultOfImageToExpected(testImageResultExample)
     print(f"matchedIcons: {matchedIcons} \n \nmissedIconsInImage: {missedIconsInImage}")
     
+def test_showMatchedIconsOnImage_function():
+    testVisualiser=matchVisualiser()
+    testImage = testImagesarray[0]
+    testImageResultExample=[1, [6, 104, 32, 168, 96], [35, 413, 27, 477, 91], [37, 175, 100, 431, 356], [45, 55, 241, 119, 305], [50, 12, 331, 140, 459]]#just done to spped up testing!
+    testVisualiser.showMatchedIconsOnImage(testImage,testImageResultExample)
+
+def run_all_images_tests():
+    testClass=matchAllImagesAndIcons(iconsarray,testImagesarray,answersArray=expected_array,boundaryError=1000)
+    completeResults=testClass.getCompleteListForEachImage()
+    print(f"########################################\n\ncomplete results\n\n")
+    for index in range(len(completeResults)):
+        print(f"Processing image {index+1} of {len(completeResults)}")
+        matchedIcons,missedIconsInImage=testClass.compareResultOfImageToExpected(completeResults[index])
+        print(f"Image {index+1} \n matchedIcons: {matchedIcons} \n \nmissedIconsInImage: {missedIconsInImage}\n \n rawouput: {completeResults[index]}\n\n///////////////////////////////////////")
+    
+test_checkAllIconsAgainstImage_function()
 
 
-test_compareResultOfImageToExpected()
+
+'''
+currently working on Icon 49  
+########################################
+
+complete results
+
+
+Processing image 1 of 20
+Image 1
+ matchedIcons: [[37, 1.0, [175, 100, 431, 356], [175, 100, 431, 356]], [6, 1.0, [104, 32, 168, 96], [104, 32, 168, 96]], [45, 1.0, [55, 241, 119, 305], [55, 241, 119, 305]], [35, 1.0, [413, 27, 477, 91], [413, 27, 477, 91]], [50, 1.0, [12, 331, 140, 459], [12, 331, 140, 459]]]
+
+missedIconsInImage: []
+
+ rawouput: [1, [6, 104, 32, 168, 96], [35, 413, 27, 477, 91], [37, 175, 100, 431, 356], [45, 55, 241, 119, 305], [50, 12, 331, 140, 459]]
+
+///////////////////////////////////////
+Processing image 2 of 20
+Image 2
+ matchedIcons: [[27, 1.0, [45, 136, 237, 328], [45, 136, 237, 328]], [3, 1.0, [363, 59, 491, 187], [363, 59, 491, 187]], [50, 1.0, [199, 363, 327, 491], [199, 363, 327, 491]], [20, 1.0, [331, 211, 395, 275], [331, 211, 395, 275]]]
+
+missedIconsInImage: []
+
+ rawouput: [2, [3, 363, 59, 491, 187], [20, 331, 211, 395, 275], [27, 45, 136, 237, 328], [50, 199, 363, 327, 491]]
+
+///////////////////////////////////////
+Processing image 3 of 20
+Image 3
+ matchedIcons: [[5, 1.0, [159, 182, 351, 374], [159, 182, 351, 374]], [31, 1.0, [67, 78, 131, 142], [67, 78, 131, 142]], [50, 1.0, [31, 406, 95, 470], [31, 406, 95, 470]], [10, 1.0, [4, 317, 68, 381], [4, 317, 68, 381]], [19, 1.0, [364, 407, 428, 471], [364, 407, 428, 471]]]
+
+missedIconsInImage: []
+
+ rawouput: [3, [5, 159, 182, 351, 374], [10, 4, 317, 68, 381], [19, 364, 407, 428, 471], [31, 67, 78, 131, 142], [50, 31, 406, 95, 470]]
+
+///////////////////////////////////////
+Processing image 4 of 20
+Image 4
+ matchedIcons: [[1, 1.0, [362, 351, 490, 479], [362, 351, 490, 479]], [3, 1.0, [60, 366, 188, 494], [60, 366, 188, 494]], [21, 1.0, [17, 242, 81, 306], [17, 242, 81, 306]]]
+
+missedIconsInImage: [[8, 164, 19, 484, 339]]
+
+ rawouput: [4, [1, 362, 351, 490, 479], [3, 60, 366, 188, 494], [21, 17, 242, 81, 306]]
+
+///////////////////////////////////////
+Processing image 5 of 20
+Image 5
+ matchedIcons: [[10, 1.0, [198, 314, 390, 506], [198, 314, 390, 506]], [8, 1.0, [53, 14, 245, 206], [53, 14, 245, 206]], [9, 1.0, [248, 190, 312, 254], [248, 190, 312, 254]], [33, 1.0, [69, 383, 133, 447], [69, 383, 133, 447]]]
+
+missedIconsInImage: []
+
+ rawouput: [5, [8, 53, 14, 245, 206], [9, 248, 190, 312, 254], [10, 198, 314, 390, 506], [33, 69, 383, 133, 447]]
+
+///////////////////////////////////////
+Processing image 6 of 20
+Image 6
+ matchedIcons: [[10, 1.0, [28, 42, 220, 234], [28, 42, 220, 234]], [25, 1.0, [253, 290, 381, 418], [253, 290, 381, 418]], [20, 1.0, [56, 358, 184, 486], [56, 358, 184, 486]], [11, 1.0, [92, 263, 156, 327], [92, 263, 156, 327]]]
+
+missedIconsInImage: []
+
+ rawouput: [6, [10, 28, 42, 220, 234], [11, 92, 263, 156, 327], [20, 56, 358, 184, 486], [25, 253, 290, 381, 418]]
+
+///////////////////////////////////////
+Processing image 7 of 20
+Image 7
+ matchedIcons: [[7, 1.0, [142, 182, 206, 246], [142, 182, 206, 246]], [41, 1.0, [259, 254, 451, 446], [259, 254, 451, 446]], [38, 1.0, [289, 58, 417, 186], [289, 58, 417, 186]], [6, 1.0, [28, 1, 156, 129], [28, 1, 156, 129]]]
+
+missedIconsInImage: [[37, 187, 417, 251, 481]]
+
+ rawouput: [7, [6, 28, 1, 156, 129], [7, 142, 182, 206, 246], [38, 289, 58, 417, 186], [41, 259, 254, 451, 446]]
+
+///////////////////////////////////////
+Processing image 8 of 20
+Image 8
+ matchedIcons: [[45, 1.0, [260, 149, 452, 341], [260, 149, 452, 341]], [1, 1.0, [257, 4, 385, 132], [257, 4, 385, 132]], [5, 1.0, [12, 109, 204, 301], [12, 109, 204, 301]], [9, 1.0, [228, 392, 292, 456], [228, 392, 292, 456]]]
+
+missedIconsInImage: []
+
+ rawouput: [8, [1, 257, 4, 385, 132], [5, 12, 109, 204, 301], [9, 228, 392, 292, 456], [45, 260, 149, 452, 341]]
+
+///////////////////////////////////////
+Processing image 9 of 20
+Image 9
+ matchedIcons: [[27, 1.0, [176, 208, 368, 400], [176, 208, 368, 400]], [34, 1.0, [410, 195, 474, 259], [410, 195, 474, 259]], [31, 1.0, [52, 408, 116, 472], [52, 408, 116, 472]], [7, 1.0, [93, 148, 157, 212], [93, 148, 157, 212]]]
+
+missedIconsInImage: []
+
+ rawouput: [9, [7, 93, 148, 157, 212], [27, 176, 208, 368, 400], [31, 52, 408, 116, 472], [34, 410, 195, 474, 259]]
+
+///////////////////////////////////////
+Processing image 10 of 20
+Image 10
+ matchedIcons: [[12, 1.0, [68, 16, 260, 208], [68, 16, 260, 208]], [29, 1.0, [245, 257, 309, 321], [245, 257, 309, 321]], [8, 1.0, [293, 342, 357, 406], [293, 342, 357, 406]], [26, 1.0, [306, 46, 434, 174], [306, 46, 434, 174]]]
+
+missedIconsInImage: []
+
+ rawouput: [10, [8, 293, 342, 357, 406], [12, 68, 16, 260, 208], [26, 306, 46, 434, 174], [29, 245, 257, 309, 321]]
+
+///////////////////////////////////////
+Processing image 11 of 20
+Image 11
+ matchedIcons: [[43, 1.0, [259, 280, 451, 472], [259, 280, 451, 472]], [47, 1.0, [26, 23, 282, 279], [26, 23, 282, 279]], [24, 1.0, [147, 294, 211, 358], [147, 294, 211, 358]], [6, 1.0, [318, 91, 382, 155], [318, 91, 382, 155]]]
+
+missedIconsInImage: [[42, 313, 163, 377, 227]]
+
+ rawouput: [11, [6, 318, 91, 382, 155], [24, 147, 294, 211, 358], [43, 259, 280, 451, 472], [47, 26, 23, 282, 279]]
+
+///////////////////////////////////////
+Processing image 12 of 20
+Image 12
+ matchedIcons: [[4, 1.0, [105, 210, 297, 402], [105, 210, 297, 402]], [7, 1.0, [142, 18, 270, 146], [142, 18, 270, 146]], [28, 1.0, [336, 107, 400, 171], [336, 107, 400, 171]], [32, 1.0, [369, 291, 497, 419], [369, 291, 497, 419]]]
+
+missedIconsInImage: []
+
+ rawouput: [12, [4, 105, 210, 297, 402], [7, 142, 18, 270, 146], [28, 336, 107, 400, 171], [32, 369, 291, 497, 419]]
+
+///////////////////////////////////////
+Processing image 13 of 20
+Image 13
+ matchedIcons: [[27, 1.0, [101, 133, 229, 261], [101, 133, 229, 261]], [24, 1.0, [361, 270, 489, 398], [361, 270, 489, 398]], [43, 1.0, [96, 314, 288, 506], [96, 314, 288, 506]], [36, 1.0, [16, 27, 80, 91], [16, 27, 80, 91]]]
+
+missedIconsInImage: [[42, 392, 7, 456, 71]]
+
+ rawouput: [13, [24, 361, 270, 489, 398], [27, 101, 133, 229, 261], [36, 16, 27, 80, 91], [43, 96, 314, 288, 506]]
+
+///////////////////////////////////////
+Processing image 14 of 20
+Image 14
+ matchedIcons: [[49, 1.0, [133, 157, 261, 285], [133, 157, 261, 285]], [43, 1.0, [320, 186, 448, 314], [320, 186, 448, 314]], [3, 1.0, [62, 10, 190, 138], [62, 10, 190, 138]], [6, 1.0, [382, 375, 510, 503], [382, 375, 510, 503]]]
+
+missedIconsInImage: []
+
+ rawouput: [14, [3, 62, 10, 190, 138], [6, 382, 375, 510, 503], [43, 320, 186, 448, 314], [49, 133, 157, 261, 285]]
+
+///////////////////////////////////////
+Processing image 15 of 20
+Image 15
+ matchedIcons: [[7, 1.0, [208, 17, 336, 145], [208, 17, 336, 145]], [43, 1.0, [183, 347, 311, 475], [183, 347, 311, 475]], [44, 1.0, [97, 431, 161, 495], [97, 431, 161, 495]], [25, 1.0, [370, 265, 498, 393], [370, 265, 498, 393]]]
+
+missedIconsInImage: [[47, 100, 347, 164, 411]]
+
+ rawouput: [15, [7, 208, 17, 336, 145], [25, 370, 265, 498, 393], [43, 183, 347, 311, 475], [44, 97, 431, 161, 495]]
+
+///////////////////////////////////////
+Processing image 16 of 20
+Image 16
+ matchedIcons: [[28, 1.0, [282, 27, 474, 219], [282, 27, 474, 219]], [6, 1.0, [74, 186, 266, 378], [74, 186, 266, 378]]]
+
+missedIconsInImage: [[37, 186, 28, 250, 92], [42, 76, 70, 140, 134]]
+
+ rawouput: [16, [6, 74, 186, 266, 378], [28, 282, 27, 474, 219]]
+
+///////////////////////////////////////
+Processing image 17 of 20
+Image 17
+ matchedIcons: [[34, 1.0, [158, 248, 414, 504], [158, 248, 414, 504]], [21, 1.0, [54, 353, 118, 417], [54, 353, 118, 417]], [15, 1.0, [379, 153, 443, 217], [379, 153, 443, 217]], [33, 1.0, [223, 89, 287, 153], [223, 89, 287, 153]]]
+
+missedIconsInImage: []
+
+ rawouput: [17, [15, 379, 153, 443, 217], [21, 54, 353, 118, 417], [33, 223, 89, 287, 153], [34, 158, 248, 414, 504]]
+
+///////////////////////////////////////
+Processing image 18 of 20
+Image 18
+ matchedIcons: [[28, 1.0, [288, 148, 416, 276], [288, 148, 416, 276]], [20, 1.0, [58, 141, 186, 269], [58, 141, 186, 269]], [36, 1.0, [341, 322, 469, 450], [341, 322, 469, 450]], [35, 1.0, [145, 403, 209, 467], [145, 403, 209, 467]]]
+
+missedIconsInImage: []
+
+ rawouput: [18, [20, 58, 141, 186, 269], [28, 288, 148, 416, 276], [35, 145, 403, 209, 467], [36, 341, 322, 469, 450]]
+
+///////////////////////////////////////
+Processing image 19 of 20
+Image 19
+ matchedIcons: [[6, 1.0, [260, 256, 452, 448], [260, 256, 452, 448]], [9, 1.0, [447, 152, 511, 216], [447, 152, 511, 216]], [12, 1.0, [56, 190, 184, 318], [56, 190, 184, 318]], [44, 1.0, [40, 9, 168, 137], [40, 9, 168, 137]]]
+
+missedIconsInImage: []
+
+ rawouput: [19, [6, 260, 256, 452, 448], [9, 447, 152, 511, 216], [12, 56, 190, 184, 318], [44, 40, 9, 168, 137]]
+
+///////////////////////////////////////
+Processing image 20 of 20
+Image 20
+ matchedIcons: [[27, 1.0, [314, 47, 506, 239], [314, 47, 506, 239]], [3, 1.0, [16, 72, 208, 264], [16, 72, 208, 264]], [23, 1.0, [134, 358, 262, 486], [134, 358, 262, 486]], [46, 1.0, [271, 313, 399, 441], [271, 313, 399, 441]], [43, 1.0, [231, 246, 295, 310], [231, 246, 295, 310]]]
+
+missedIconsInImage: []
+
+ rawouput: [20, [3, 16, 72, 208, 264], [23, 134, 358, 262, 486], [27, 314, 47, 506, 239], [43, 231, 246, 295, 310], [46, 271, 313, 399, 441]]
+
+///////////////////////////////////////
+'''
