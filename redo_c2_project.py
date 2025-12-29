@@ -497,12 +497,12 @@ def test_checkIndividualImage_function():
 
 def test_checkIndividualIconPyramid_function():
     #test_checkIndividualImage_function()
-    testIcon = iconsarray[0]
-    testImage = testImagesarray[7]
-    pyrami_generator = libarygaussianPyramid(testImage , levels=(6))
+    testIcon = iconsarray[43]
+    testImage = testImagesarray[18]
+    pyrami_generator = libarygaussianPyramid(testImage , levels=(5))
     pyrami_generator.build_pyramid_image()
     testImagePyramid=pyrami_generator.get_pyramid()
-    pyrami_generatorIcon = libarygaussianPyramid(testIcon, levels=(9))
+    pyrami_generatorIcon = libarygaussianPyramid(testIcon, levels=(8))
     pyrami_generatorIcon.build_pyramid_icon()
     testiconPyramid=pyrami_generatorIcon.get_pyramid()
     print(f"testIcon pyramid: {len(testiconPyramid)}")
@@ -567,7 +567,7 @@ def run_all_images_tests():
         matchedIcons,missedIconsInImage=testClass.compareResultOfImageToExpected(completeResults[index])
         print(f"Image {index+1} \n matchedIcons: {matchedIcons} \n \nmissedIconsInImage: {missedIconsInImage}\n \n rawouput: {completeResults[index]}\n\n///////////////////////////////////////")
     
-test_checkAllIconsAgainstImage_function()
+test_checkIndividualIconPyramid_function()
 
 
 
